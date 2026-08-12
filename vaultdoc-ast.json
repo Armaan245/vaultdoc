@@ -1,0 +1,114 @@
+[
+  {
+    "symbol": "export",
+    "type": "export",
+    "code": "export async function initParser() {\n  if (parserReady) return;\n  await Parser.init();\n  \n  const wasmDir = path.join(__dirname, '..', 'node_modules', 'tree-sitter-wasms', 'out');\n\n  for (const [ext, wasmFile] of Object.entries(LANG_WASM)) {\n    if (!parsers[ext]) {\n      const wasmPath = path.join(wasmDir, wasmFile);\n      try {\n        const lang = await Parser.Language.load(wasmPath);\n        parsers[ext] = lang;\n      } catch (e: any) {\n        console.warn(`Failed to load language for ${ext} at ${wasmPath}:`, e.message || e);\n      }\n    }\n  }\n\n  parserReady = true;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\parser.ts",
+    "startLine": 20,
+    "endLine": 39
+  },
+  {
+    "symbol": "initParser",
+    "type": "function",
+    "code": "async function initParser() {\n  if (parserReady) return;\n  await Parser.init();\n  \n  const wasmDir = path.join(__dirname, '..', 'node_modules', 'tree-sitter-wasms', 'out');\n\n  for (const [ext, wasmFile] of Object.entries(LANG_WASM)) {\n    if (!parsers[ext]) {\n      const wasmPath = path.join(wasmDir, wasmFile);\n      try {\n        const lang = await Parser.Language.load(wasmPath);\n        parsers[ext] = lang;\n      } catch (e: any) {\n        console.warn(`Failed to load language for ${ext} at ${wasmPath}:`, e.message || e);\n      }\n    }\n  }\n\n  parserReady = true;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\parser.ts",
+    "startLine": 20,
+    "endLine": 39
+  },
+  {
+    "symbol": "export",
+    "type": "export",
+    "code": "export function parseFile(filePath: string): ExtractedSymbol[] {\n  const ext = path.extname(filePath).toLowerCase();\n  const lang = parsers[ext];\n  if (!lang) return [];\n\n  const parser = new Parser();\n  parser.setLanguage(lang);\n\n  // Implement chunked reader to avoid loading entire file into memory as single string\n  const fd = fs.openSync(filePath, 'r');\n  const stat = fs.statSync(filePath);\n  const fileSize = stat.size;\n\n  const buffer = Buffer.alloc(8192); // 8KB chunk\n  \n  const input = (index: number) => {\n    if (index >= fileSize) return null;\n    const toRead = Math.min(buffer.length, fileSize - index);\n    const bytesRead = fs.readSync(fd, buffer, 0, toRead, index);\n    if (bytesRead === 0) return null;\n    return buffer.toString('utf8', 0, bytesRead);\n  };\n\n  const tree = parser.parse(input);\n  \n  const symbols: ExtractedSymbol[] = [];\n\n  function traverse(node: any) {\n    let type: SymbolType | null = null;\n    let name = '';\n\n    // TypeScript / JavaScript\n    if (node.type === 'function_declaration') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'class_declaration') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'export_statement') {\n      type = 'export';\n      name = 'export'; // exact name can be complex to extract for all export types\n    } else if (node.type === 'interface_declaration') {\n      type = 'interface';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_alias_declaration') {\n      type = 'type alias';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'enum_declaration') {\n      type = 'enum';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n    // Python\n    else if (node.type === 'function_definition') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'class_definition') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n    // Go\n    else if (node.type === 'function_declaration' || node.type === 'method_declaration') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_declaration') {\n      type = 'interface'; // Go types can be structs, interfaces, etc. Simplified here.\n      name = 'type';\n    }\n    // Rust\n    else if (node.type === 'function_item') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'struct_item') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'enum_item') {\n      type = 'enum';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_item') {\n      type = 'type alias';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n\n    if (type) {\n      // Read exact code chunk for this node from file\n      const nodeLength = node.endIndex - node.startIndex;\n      const codeBuffer = Buffer.alloc(nodeLength);\n      fs.readSync(fd, codeBuffer, 0, nodeLength, node.startIndex);\n      const code = codeBuffer.toString('utf8');\n\n      // Note: we can't reliably use `node.text` when parsing with an input callback\n      // because web-tree-sitter does not assemble the full string.\n      // We manually read the boundaries!\n\n      symbols.push({\n        symbol: name,\n        type,\n        code,\n        filePath,\n        startLine: node.startPosition.row + 1,\n        endLine: node.endPosition.row + 1,\n      });\n    }\n\n    for (const child of node.children) {\n      traverse(child);\n    }\n  }\n\n  traverse(tree.rootNode);\n\n  fs.closeSync(fd);\n  tree.delete();\n  parser.delete();\n\n  return symbols;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\parser.ts",
+    "startLine": 41,
+    "endLine": 156
+  },
+  {
+    "symbol": "parseFile",
+    "type": "function",
+    "code": "function parseFile(filePath: string): ExtractedSymbol[] {\n  const ext = path.extname(filePath).toLowerCase();\n  const lang = parsers[ext];\n  if (!lang) return [];\n\n  const parser = new Parser();\n  parser.setLanguage(lang);\n\n  // Implement chunked reader to avoid loading entire file into memory as single string\n  const fd = fs.openSync(filePath, 'r');\n  const stat = fs.statSync(filePath);\n  const fileSize = stat.size;\n\n  const buffer = Buffer.alloc(8192); // 8KB chunk\n  \n  const input = (index: number) => {\n    if (index >= fileSize) return null;\n    const toRead = Math.min(buffer.length, fileSize - index);\n    const bytesRead = fs.readSync(fd, buffer, 0, toRead, index);\n    if (bytesRead === 0) return null;\n    return buffer.toString('utf8', 0, bytesRead);\n  };\n\n  const tree = parser.parse(input);\n  \n  const symbols: ExtractedSymbol[] = [];\n\n  function traverse(node: any) {\n    let type: SymbolType | null = null;\n    let name = '';\n\n    // TypeScript / JavaScript\n    if (node.type === 'function_declaration') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'class_declaration') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'export_statement') {\n      type = 'export';\n      name = 'export'; // exact name can be complex to extract for all export types\n    } else if (node.type === 'interface_declaration') {\n      type = 'interface';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_alias_declaration') {\n      type = 'type alias';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'enum_declaration') {\n      type = 'enum';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n    // Python\n    else if (node.type === 'function_definition') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'class_definition') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n    // Go\n    else if (node.type === 'function_declaration' || node.type === 'method_declaration') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_declaration') {\n      type = 'interface'; // Go types can be structs, interfaces, etc. Simplified here.\n      name = 'type';\n    }\n    // Rust\n    else if (node.type === 'function_item') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'struct_item') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'enum_item') {\n      type = 'enum';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_item') {\n      type = 'type alias';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n\n    if (type) {\n      // Read exact code chunk for this node from file\n      const nodeLength = node.endIndex - node.startIndex;\n      const codeBuffer = Buffer.alloc(nodeLength);\n      fs.readSync(fd, codeBuffer, 0, nodeLength, node.startIndex);\n      const code = codeBuffer.toString('utf8');\n\n      // Note: we can't reliably use `node.text` when parsing with an input callback\n      // because web-tree-sitter does not assemble the full string.\n      // We manually read the boundaries!\n\n      symbols.push({\n        symbol: name,\n        type,\n        code,\n        filePath,\n        startLine: node.startPosition.row + 1,\n        endLine: node.endPosition.row + 1,\n      });\n    }\n\n    for (const child of node.children) {\n      traverse(child);\n    }\n  }\n\n  traverse(tree.rootNode);\n\n  fs.closeSync(fd);\n  tree.delete();\n  parser.delete();\n\n  return symbols;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\parser.ts",
+    "startLine": 41,
+    "endLine": 156
+  },
+  {
+    "symbol": "traverse",
+    "type": "function",
+    "code": "function traverse(node: any) {\n    let type: SymbolType | null = null;\n    let name = '';\n\n    // TypeScript / JavaScript\n    if (node.type === 'function_declaration') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'class_declaration') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'export_statement') {\n      type = 'export';\n      name = 'export'; // exact name can be complex to extract for all export types\n    } else if (node.type === 'interface_declaration') {\n      type = 'interface';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_alias_declaration') {\n      type = 'type alias';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'enum_declaration') {\n      type = 'enum';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n    // Python\n    else if (node.type === 'function_definition') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'class_definition') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n    // Go\n    else if (node.type === 'function_declaration' || node.type === 'method_declaration') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_declaration') {\n      type = 'interface'; // Go types can be structs, interfaces, etc. Simplified here.\n      name = 'type';\n    }\n    // Rust\n    else if (node.type === 'function_item') {\n      type = 'function';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'struct_item') {\n      type = 'class';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'enum_item') {\n      type = 'enum';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    } else if (node.type === 'type_item') {\n      type = 'type alias';\n      name = node.childForFieldName('name')?.text || 'anonymous';\n    }\n\n    if (type) {\n      // Read exact code chunk for this node from file\n      const nodeLength = node.endIndex - node.startIndex;\n      const codeBuffer = Buffer.alloc(nodeLength);\n      fs.readSync(fd, codeBuffer, 0, nodeLength, node.startIndex);\n      const code = codeBuffer.toString('utf8');\n\n      // Note: we can't reliably use `node.text` when parsing with an input callback\n      // because web-tree-sitter does not assemble the full string.\n      // We manually read the boundaries!\n\n      symbols.push({\n        symbol: name,\n        type,\n        code,\n        filePath,\n        startLine: node.startPosition.row + 1,\n        endLine: node.endPosition.row + 1,\n      });\n    }\n\n    for (const child of node.children) {\n      traverse(child);\n    }\n  }",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\parser.ts",
+    "startLine": 68,
+    "endLine": 147
+  },
+  {
+    "symbol": "isBinary",
+    "type": "function",
+    "code": "function isBinary(filePath: string): boolean {\n  const ext = path.extname(filePath).toLowerCase();\n  return BINARY_EXTENSIONS.has(ext);\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\scanner.ts",
+    "startLine": 30,
+    "endLine": 33
+  },
+  {
+    "symbol": "isAllowedExtension",
+    "type": "function",
+    "code": "function isAllowedExtension(filePath: string): boolean {\n  const ext = path.extname(filePath).toLowerCase();\n  return ALLOWED_EXTENSIONS.has(ext);\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\scanner.ts",
+    "startLine": 35,
+    "endLine": 38
+  },
+  {
+    "symbol": "export",
+    "type": "export",
+    "code": "export async function scanDirectory(dirPath: string): Promise<string[]> {\n  const files: string[] = [];\n  const ig = ignore();\n  \n  // Try to read .gitignore if it exists\n  const gitignorePath = path.join(dirPath, '.gitignore');\n  if (fs.existsSync(gitignorePath)) {\n    const gitignoreContent = await fs.promises.readFile(gitignorePath, 'utf-8');\n    ig.add(gitignoreContent);\n  }\n\n  ig.add(ALWAYS_IGNORE);\n\n  async function walk(currentPath: string, relativePath: string) {\n    const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });\n\n    for (const entry of entries) {\n      const entryRelativePath = path.join(relativePath, entry.name).replace(/\\\\/g, '/');\n      const entryAbsolutePath = path.join(currentPath, entry.name);\n\n      if (ig.ignores(entryRelativePath)) {\n        continue;\n      }\n\n      if (entry.isDirectory()) {\n        await walk(entryAbsolutePath, entryRelativePath);\n      } else if (entry.isFile()) {\n        if (isBinary(entry.name)) continue;\n        if (!isAllowedExtension(entry.name)) continue;\n\n        const stat = await fs.promises.stat(entryAbsolutePath);\n        if (stat.size > MAX_FILE_SIZE) {\n          continue;\n        }\n\n        files.push(entryAbsolutePath);\n      }\n    }\n  }\n\n  await walk(dirPath, '');\n  return files;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\scanner.ts",
+    "startLine": 40,
+    "endLine": 82
+  },
+  {
+    "symbol": "scanDirectory",
+    "type": "function",
+    "code": "async function scanDirectory(dirPath: string): Promise<string[]> {\n  const files: string[] = [];\n  const ig = ignore();\n  \n  // Try to read .gitignore if it exists\n  const gitignorePath = path.join(dirPath, '.gitignore');\n  if (fs.existsSync(gitignorePath)) {\n    const gitignoreContent = await fs.promises.readFile(gitignorePath, 'utf-8');\n    ig.add(gitignoreContent);\n  }\n\n  ig.add(ALWAYS_IGNORE);\n\n  async function walk(currentPath: string, relativePath: string) {\n    const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });\n\n    for (const entry of entries) {\n      const entryRelativePath = path.join(relativePath, entry.name).replace(/\\\\/g, '/');\n      const entryAbsolutePath = path.join(currentPath, entry.name);\n\n      if (ig.ignores(entryRelativePath)) {\n        continue;\n      }\n\n      if (entry.isDirectory()) {\n        await walk(entryAbsolutePath, entryRelativePath);\n      } else if (entry.isFile()) {\n        if (isBinary(entry.name)) continue;\n        if (!isAllowedExtension(entry.name)) continue;\n\n        const stat = await fs.promises.stat(entryAbsolutePath);\n        if (stat.size > MAX_FILE_SIZE) {\n          continue;\n        }\n\n        files.push(entryAbsolutePath);\n      }\n    }\n  }\n\n  await walk(dirPath, '');\n  return files;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\scanner.ts",
+    "startLine": 40,
+    "endLine": 82
+  },
+  {
+    "symbol": "walk",
+    "type": "function",
+    "code": "async function walk(currentPath: string, relativePath: string) {\n    const entries = await fs.promises.readdir(currentPath, { withFileTypes: true });\n\n    for (const entry of entries) {\n      const entryRelativePath = path.join(relativePath, entry.name).replace(/\\\\/g, '/');\n      const entryAbsolutePath = path.join(currentPath, entry.name);\n\n      if (ig.ignores(entryRelativePath)) {\n        continue;\n      }\n\n      if (entry.isDirectory()) {\n        await walk(entryAbsolutePath, entryRelativePath);\n      } else if (entry.isFile()) {\n        if (isBinary(entry.name)) continue;\n        if (!isAllowedExtension(entry.name)) continue;\n\n        const stat = await fs.promises.stat(entryAbsolutePath);\n        if (stat.size > MAX_FILE_SIZE) {\n          continue;\n        }\n\n        files.push(entryAbsolutePath);\n      }\n    }\n  }",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\scanner.ts",
+    "startLine": 53,
+    "endLine": 78
+  },
+  {
+    "symbol": "export",
+    "type": "export",
+    "code": "export type SymbolType =\n  | 'function'\n  | 'class'\n  | 'export'\n  | 'interface'\n  | 'type alias'\n  | 'enum';",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\types.ts",
+    "startLine": 1,
+    "endLine": 7
+  },
+  {
+    "symbol": "SymbolType",
+    "type": "type alias",
+    "code": "type SymbolType =\n  | 'function'\n  | 'class'\n  | 'export'\n  | 'interface'\n  | 'type alias'\n  | 'enum';",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\types.ts",
+    "startLine": 1,
+    "endLine": 7
+  },
+  {
+    "symbol": "export",
+    "type": "export",
+    "code": "export interface ExtractedSymbol {\n  symbol: string;\n  type: SymbolType;\n  code: string;\n  filePath: string;\n  startLine: number;\n  endLine: number;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\types.ts",
+    "startLine": 9,
+    "endLine": 16
+  },
+  {
+    "symbol": "ExtractedSymbol",
+    "type": "interface",
+    "code": "interface ExtractedSymbol {\n  symbol: string;\n  type: SymbolType;\n  code: string;\n  filePath: string;\n  startLine: number;\n  endLine: number;\n}",
+    "filePath": "C:\\Users\\armaa\\OneDrive\\Desktop\\vaultdoc\\src\\types.ts",
+    "startLine": 9,
+    "endLine": 16
+  }
+]
