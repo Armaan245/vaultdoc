@@ -1,49 +1,141 @@
-import React from 'react';
-import { ChevronLeft, Folder, Plus, Hexagon, TriangleAlert, Minus } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ChevronDown, Folder, Plus, Hexagon, TriangleAlert, Minus } from 'lucide-react';
 
-const FileItem = ({ 
-  name, 
-  ext, 
-  extColor, 
-  isActive = false, 
-  isFolder = false, 
-  indent = 0 
-}: { 
-  name: string, 
-  ext?: string, 
-  extColor?: string, 
-  isActive?: boolean, 
-  isFolder?: boolean, 
-  indent?: number 
-}) => {
+type TreeNode = {
+  name: string;
+  path: string;
+  isFolder: boolean;
+  children: Record<string, TreeNode>;
+};
+
+function buildTree(paths: string[]): TreeNode {
+  const root: TreeNode = { name: 'root', path: '', isFolder: true, children: {} };
+  
+  for (const p of paths) {
+    const parts = p.split(/[/\\]/).filter(Boolean);
+    let current = root;
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (!current.children[part]) {
+        current.children[part] = {
+          name: part,
+          path: parts.slice(0, i + 1).join('/'),
+          isFolder: i < parts.length - 1,
+          children: {}
+        };
+      }
+      current = current.children[part];
+    }
+  }
+  return root;
+}
+
+const TreeFolder = ({ node, indent = 0 }: { node: TreeNode, indent?: number }) => {
+  const [isOpen, setIsOpen] = useState(true);
+  
+  const children = Object.values(node.children).sort((a, b) => {
+    if (a.isFolder === b.isFolder) return a.name.localeCompare(b.name);
+    return a.isFolder ? -1 : 1;
+  });
+
+  return (
+    <div>
+      <div 
+        className="flex items-center py-1.5 px-3 cursor-pointer hover:bg-vault-base text-vault-textBody transition-colors select-none"
+        style={{ paddingLeft: `${indent * 12 + 12}px` }}
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        {isOpen ? <ChevronDown className="w-3.5 h-3.5 mr-1 opacity-60" /> : <ChevronRight className="w-3.5 h-3.5 mr-1 opacity-60" />}
+        <Folder className="w-3.5 h-3.5 mr-2 text-vault-accent opacity-80 flex-shrink-0" fill="currentColor" />
+        <span className="text-sm truncate">{node.name}</span>
+      </div>
+      {isOpen && children.map(child => child.isFolder ? (
+        <TreeFolder key={child.path} node={child} indent={indent + 1} />
+      ) : (
+        <TreeFile key={child.path} node={child} indent={indent + 1} />
+      ))}
+    </div>
+  );
+};
+
+const TreeFile = ({ node, indent = 0 }: { node: TreeNode, indent?: number }) => {
+  const ext = node.name.split('.').pop() || '';
+  let color = 'text-vault-textBody';
+  const codeExts = ['ts', 'tsx', 'js', 'jsx', 'go', 'java', 'cpp', 'c', 'cs', 'php', 'rb', 'swift', 'kt'];
+  const dataExts = ['py', 'json', 'rs', 'yaml', 'yml', 'toml', 'xml', 'html', 'css', 'scss', 'mjs', 'sql'];
+  const docExts = ['md', 'mdx', 'txt', 'csv'];
+
+  if (codeExts.includes(ext)) color = 'text-vault-codeHighlight';
+  if (dataExts.includes(ext)) color = 'text-vault-yellow';
+  if (docExts.includes(ext)) color = 'text-vault-accent';
+  
   return (
     <div 
-      className={`flex items-center py-1.5 px-3 cursor-pointer text-sm ${isActive ? 'bg-vault-card border-l-2 border-vault-accent text-vault-textPrimary' : 'border-l-2 border-transparent hover:bg-vault-base text-vault-textBody'} transition-colors`}
-      style={{ paddingLeft: `${indent * 12 + 12}px` }}
+      className="flex items-center py-1.5 px-3 cursor-pointer border-l-2 border-transparent hover:bg-vault-base text-vault-textBody transition-colors group"
+      style={{ paddingLeft: `${indent * 12 + 30}px` }}
     >
-      {isFolder ? (
-        <Folder className="w-3.5 h-3.5 mr-2 opacity-60" fill="currentColor" />
-      ) : (
-        <span className={`text-xs mr-2 font-mono ${extColor || 'text-vault-textBody'}`}>.{ext}</span>
-      )}
-      <span className={isActive ? 'font-medium' : 'truncate'}>{name}</span>
+      <span className={`text-[10px] w-6 mr-1.5 font-mono uppercase opacity-70 group-hover:opacity-100 ${color}`}>{ext.substring(0, 3)}</span>
+      <span className="text-sm truncate">{node.name}</span>
     </div>
   );
 };
 
 const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTree: Set<string>, onSelectRepo: () => void, onGenerate: (prompt: string) => void, isLoading: boolean }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const files = Array.from(fileTree);
+  const hasRepo = files.length > 0;
   
-  // Basic rendering of files (flat structure for now, but simulating folder look)
-  // In a real app we'd build a nested tree, but for this demo we'll just show the flat files
+  const rootNode = useMemo(() => buildTree(files), [files]);
   
+  // Sort top-level children
+  const topLevelChildren = Object.values(rootNode.children).sort((a, b) => {
+    if (a.isFolder === b.isFolder) return a.name.localeCompare(b.name);
+    return a.isFolder ? -1 : 1;
+  });
+
+  if (isCollapsed) {
+    return (
+      <div className="w-[60px] flex-shrink-0 h-full bg-vault-panel border-r border-vault-border flex flex-col items-center pt-4 pb-6 justify-between print:hidden">
+        <div className="flex flex-col items-center w-full">
+          <ChevronRight 
+            className="w-5 h-5 cursor-pointer text-vault-textBody hover:text-vault-textPrimary mb-6" 
+            onClick={() => setIsCollapsed(false)} 
+          />
+          <div className="w-8 h-8 rounded border border-vault-border flex items-center justify-center mb-2 hover:bg-vault-base cursor-pointer" onClick={() => !isLoading && hasRepo && onGenerate('Generate a comprehensive Architecture Specification covering all major modules. Format all database schemas strictly as Markdown Tables, do NOT use SQL code blocks.')} title="Architecture Spec">
+            <Hexagon className={`w-4 h-4 ${hasRepo ? 'text-vault-textBody' : 'text-vault-textBody opacity-30'}`} />
+          </div>
+          <div className="w-8 h-8 rounded border border-vault-border flex items-center justify-center mb-2 hover:bg-vault-base cursor-pointer" onClick={() => !isLoading && hasRepo && onGenerate('Generate API Reference documentation.')} title="API Reference">
+            <Minus className={`w-4 h-4 ${hasRepo ? 'text-vault-textBody' : 'text-vault-textBody opacity-30'}`} />
+          </div>
+          <div className="w-8 h-8 rounded border border-vault-border flex items-center justify-center mb-2 hover:bg-vault-base cursor-pointer" onClick={() => !isLoading && hasRepo && onGenerate('Perform a Security Audit and document findings.')} title="Security Audit">
+            <TriangleAlert className={`w-4 h-4 ${hasRepo ? 'text-vault-textBody' : 'text-vault-textBody opacity-30'}`} />
+          </div>
+        </div>
+        
+        <div className="w-8 h-8 rounded border border-vault-accent text-vault-accent flex items-center justify-center hover:bg-vault-accent hover:text-vault-base cursor-pointer transition-colors"
+          onClick={() => {
+            if (!hasRepo) return;
+            const p = prompt("Enter custom prompt:");
+            if (p) onGenerate(p);
+          }}
+          title="Custom Document"
+        >
+          <Plus className="w-4 h-4" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="w-[240px] flex-shrink-0 h-full bg-vault-panel border-r border-vault-border flex flex-col justify-between">
+    <div className="w-[240px] flex-shrink-0 h-full bg-vault-panel border-r border-vault-border flex flex-col justify-between transition-all print:hidden">
       {/* Top Half: File Explorer */}
-      <div className="flex-1 overflow-y-auto pt-4 custom-scrollbar">
+      <div className="flex-1 overflow-y-auto pt-4 pb-4 custom-scrollbar">
         <div className="flex items-center justify-between px-4 mb-4 text-xs font-semibold text-vault-textBody tracking-widest uppercase">
           <span>Repository</span>
-          <ChevronLeft className="w-4 h-4 cursor-pointer hover:text-vault-textPrimary" onClick={onSelectRepo} />
+          <ChevronLeft 
+            className="w-4 h-4 cursor-pointer hover:text-vault-textPrimary" 
+            onClick={() => setIsCollapsed(true)}
+          />
         </div>
         
         <div className="flex flex-col">
@@ -52,19 +144,11 @@ const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTr
               No files parsed. Click the top-right button to select a repo.
             </div>
           ) : (
-            files.map((file, i) => {
-              const parts = file.split(/[/\\]/);
-              const name = parts.pop() || file;
-              const ext = name.split('.').pop() || '';
-              
-              let color = 'text-vault-textBody';
-              if (ext === 'ts' || ext === 'tsx' || ext === 'go') color = 'text-vault-codeHighlight';
-              if (ext === 'py' || ext === 'json' || ext === 'rs') color = 'text-vault-yellow';
-              
-              return (
-                <FileItem key={i} name={name} ext={ext} extColor={color} indent={1} />
-              )
-            })
+            topLevelChildren.map(child => child.isFolder ? (
+              <TreeFolder key={child.path} node={child} indent={0} />
+            ) : (
+              <TreeFile key={child.path} node={child} indent={0} />
+            ))
           )}
         </div>
       </div>
@@ -75,24 +159,24 @@ const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTr
           Generator Presets
         </div>
         
-        <div onClick={() => !isLoading && onGenerate('Generate a comprehensive Architecture Specification covering all major modules.')}>
-          <PresetCard title="Architecture Spec" Icon={Hexagon} isActive={false} />
+        <div onClick={() => !isLoading && hasRepo && onGenerate('Generate a comprehensive Architecture Specification covering all major modules. Format all database schemas strictly as Markdown Tables, do NOT use SQL code blocks.')}>
+          <PresetCard title="Architecture Spec" Icon={Hexagon} isActive={false} disabled={!hasRepo} />
         </div>
-        <div onClick={() => !isLoading && onGenerate('Generate API Reference documentation.')}>
-          <PresetCard title="API Reference" Icon={Minus} />
+        <div onClick={() => !isLoading && hasRepo && onGenerate('Generate API Reference documentation.')}>
+          <PresetCard title="API Reference" Icon={Minus} disabled={!hasRepo} />
         </div>
-        <div onClick={() => !isLoading && onGenerate('Perform a Security Audit and document findings.')}>
-          <PresetCard title="Security Audit" Icon={TriangleAlert} />
+        <div onClick={() => !isLoading && hasRepo && onGenerate('Perform a Security Audit and document findings.')}>
+          <PresetCard title="Security Audit" Icon={TriangleAlert} disabled={!hasRepo} />
         </div>
 
         <div className="px-3 mt-4">
           <button 
-            disabled={isLoading}
+            disabled={isLoading || !hasRepo}
             onClick={() => {
                const p = prompt("Enter custom prompt:");
                if (p) onGenerate(p);
             }}
-            className="w-full flex items-center justify-center gap-2 py-2 border border-vault-accent text-vault-accent hover:bg-vault-accent hover:bg-opacity-10 rounded transition-colors text-xs font-medium disabled:opacity-50">
+            className="w-full flex items-center justify-center gap-2 py-2 border border-vault-accent text-vault-accent hover:bg-vault-accent hover:text-vault-base rounded transition-colors text-xs font-medium disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-vault-accent disabled:cursor-not-allowed">
             <Plus className="w-3.5 h-3.5" /> {isLoading ? 'Generating...' : 'Custom Document'}
           </button>
         </div>
@@ -101,11 +185,13 @@ const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTr
   );
 };
 
-const PresetCard = ({ title, isActive = false, Icon }: { title: string, isActive?: boolean, Icon: React.ElementType }) => (
-  <div className={`flex items-center gap-2 px-3 py-2.5 mx-3 mb-2 rounded border cursor-pointer transition-all ${
-    isActive 
-      ? 'bg-vault-card border-vault-accent shadow-[0_0_10px_rgba(6,182,212,0.15)] text-vault-accent' 
-      : 'border-vault-border hover:border-vault-textBody opacity-60 text-vault-textBody hover:opacity-100'
+const PresetCard = ({ title, isActive = false, disabled = false, Icon }: { title: string, isActive?: boolean, disabled?: boolean, Icon: React.ElementType }) => (
+  <div className={`flex items-center gap-2 px-3 py-2.5 mx-3 mb-2 rounded border transition-all ${
+    disabled 
+      ? 'opacity-50 cursor-not-allowed border-vault-border text-vault-textBody' 
+      : isActive 
+        ? 'bg-vault-card border-vault-accent shadow-[0_0_10px_rgba(6,182,212,0.15)] text-vault-accent cursor-pointer font-medium' 
+        : 'border-vault-border hover:border-vault-textBody text-vault-textBody hover:text-vault-textPrimary cursor-pointer'
   }`}>
     <Icon className="w-4 h-4" />
     <span className={`text-xs ${isActive ? 'font-medium' : ''}`}>{title}</span>

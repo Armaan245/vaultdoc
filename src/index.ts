@@ -44,10 +44,10 @@ program
       console.log('Parsing files...');
       for (const file of files) {
         try {
-          const symbols = parseFile(file);
+          const symbols = parseFile(file.absolutePath, file.relativePath);
           allSymbols = allSymbols.concat(symbols);
         } catch (err) {
-          console.error(`Failed to parse file ${file}:`, err);
+          console.error(`Failed to parse file ${file.relativePath}:`, err);
         }
       }
 

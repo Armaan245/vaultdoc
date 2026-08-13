@@ -26,6 +26,72 @@
   }
 }
 
+:root {
+  --bg-primary: #0b121e;
+  --bg-secondary: #0f172a;
+  --bg-card: #1e293b;
+  --border-color: #334155;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --accent-pill-bg: #06b6d4;
+  --accent-pill-text: #ffffff;
+}
+
+.light {
+  --bg-primary: #f8fafc;
+  --bg-secondary: #ffffff;
+  --bg-card: #f1f5f9;
+  --border-color: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --accent-pill-bg: #e0f2fe;
+  --accent-pill-text: #0284c7;
+
+  /* VaultDoc Light Mode Overrides */
+  --color-vault-base: #F8FAFC;
+  --color-vault-panel: #FFFFFF;
+  --color-vault-card: #F1F5F9;
+  --color-vault-border: #E2E8F0;
+  --color-vault-borderLight: #E2E8F0;
+  --color-vault-accent: #0284C7;
+  --color-vault-security: #059669;
+  --color-vault-securityDark: #E0F2FE;
+  --color-vault-textPrimary: #0F172A;
+  --color-vault-textBody: #475569;
+  --color-vault-codeHighlight: #0284C7;
+}
+
+/* Light mode markdown overrides for clean dark text on light background */
+.light .markdown-body.prose {
+  color: #334155 !important;
+}
+.light .markdown-body.prose h1,
+.light .markdown-body.prose h2,
+.light .markdown-body.prose h3,
+.light .markdown-body.prose h4 {
+  color: #0f172a !important;
+}
+.light .markdown-body.prose p,
+.light .markdown-body.prose li {
+  color: #334155 !important;
+}
+
+/* Preserve high-contrast dark backgrounds for code blocks in Light Mode */
+.light .code-block-wrapper {
+  background: #121927 !important;
+  border-color: #334155 !important;
+}
+.light .code-block-header {
+  background: #0d131f !important;
+  border-color: #334155 !important;
+}
+.light .code-block-header span {
+  color: #94a3b8 !important;
+}
+.light .code-block-content code {
+  color: #f8fafc !important;
+}
+
 /* Custom scrollbar for webkit */
 ::-webkit-scrollbar {
   width: 8px;
@@ -39,4 +105,227 @@
 }
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-vault-textBody;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 20mm 14mm 14mm 14mm;
+  }
+
+  /* Reset layout constraints to allow multi-page printing */
+  body, #root, .flex, .flex-col, .h-screen, .w-screen, .overflow-hidden, .flex-1, .overflow-y-auto {
+    height: auto !important;
+    width: auto !important;
+    overflow: visible !important;
+    display: block !important;
+    position: static !important;
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Force background colors to print */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Expand markdown container & add top space for page 2+ running header */
+  .markdown-container,
+  .markdown-body {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    padding-top: 8mm !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  }
+
+  /* Cover Page Styling (Page 1) */
+  .print-cover-page {
+    width: 100% !important;
+    height: 257mm !important;
+    min-height: 257mm !important;
+    margin-top: -20mm !important;
+    margin-bottom: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    box-sizing: border-box !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    background: #ffffff !important;
+    z-index: 100 !important;
+  }
+
+  /* Fixed Header Styling (Pages 2+) */
+  .print-fixed-header {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    height: 7mm !important;
+    padding-bottom: 3px !important;
+    border-bottom: 2px solid #0284c7 !important;
+    background: #ffffff !important;
+    z-index: 10 !important;
+  }
+
+  /* Markdown Elements & Typography Spacing */
+  .prose {
+    color: #1e293b !important;
+    max-width: 100% !important;
+    font-size: 13.5px !important;
+    line-height: 1.6 !important;
+  }
+  .prose p,
+  .prose li,
+  .prose td,
+  .prose strong,
+  .prose em {
+    color: #1e293b !important;
+  }
+
+  .prose h1, .prose h2 {
+    color: #0284c7 !important;
+    border-bottom: 1.5px solid #e0f2fe !important;
+    padding-bottom: 4px !important;
+    margin-top: 1.1rem !important;
+    margin-bottom: 0.5rem !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+  .prose h3, .prose h4, .prose h5, .prose h6 {
+    color: #0369a1 !important;
+    margin-top: 0.9rem !important;
+    margin-bottom: 0.35rem !important;
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+  }
+
+  .prose p {
+    margin-bottom: 0.55rem !important;
+    margin-top: 0 !important;
+    line-height: 1.6 !important;
+  }
+
+  .prose ul, .prose ol {
+    margin-top: 0.3rem !important;
+    margin-bottom: 0.55rem !important;
+  }
+
+  .prose li {
+    margin-bottom: 0.2rem !important;
+  }
+
+  /* Tables */
+  .prose table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin: 0.8rem 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .prose th {
+    background: #0284c7 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    padding: 8px 12px !important;
+    border: 1px solid #0369a1 !important;
+    text-align: left !important;
+  }
+  .prose td {
+    padding: 8px 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    background: #ffffff !important;
+  }
+  .prose tr:nth-child(even) td {
+    background: #f8fafc !important;
+  }
+
+  /* Code Blocks in Print - High-Contrast Dark Syntax Theme */
+  .code-block-wrapper {
+    background: #0d1117 !important;
+    border: 1px solid #30363d !important;
+    border-radius: 6px !important;
+    margin: 0.8rem 0 !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+  .code-block-header {
+    background: #161b22 !important;
+    border-bottom: 1px solid #30363d !important;
+    color: #8b949e !important;
+    padding: 4px 12px !important;
+  }
+  .code-block-header span {
+    color: #8b949e !important;
+    font-weight: bold !important;
+  }
+  .code-block-content {
+    background: #0d1117 !important;
+  }
+  .code-block-content code,
+  .code-block-content code * {
+    color: #e6edf3 !important;
+    background: transparent !important;
+    border: none !important;
+    font-size: 11.5px !important;
+  }
+  .code-block-content span[style*="98C379"],
+  .code-block-content span[style*="98c379"] {
+    color: #7ee787 !important; /* Crisp Light Green strings */
+  }
+  .code-block-content span[style*="C678DD"],
+  .code-block-content span[style*="c678dd"] {
+    color: #d2a8ff !important; /* Crisp Light Purple keywords */
+  }
+  .code-block-content span[style*="56B6C2"],
+  .code-block-content span[style*="56b6c2"] {
+    color: #79c0ff !important; /* Crisp Light Cyan types */
+  }
+
+  /* Inline Code Badges */
+  .prose code:not(pre code) {
+    background: #f0f9ff !important;
+    color: #0369a1 !important;
+    border: 1px solid #bae6fd !important;
+    padding: 1px 5px !important;
+    border-radius: 4px !important;
+    font-weight: 600 !important;
+    display: inline-block !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  .prose p, .prose li {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  .prose a {
+    text-decoration: underline !important;
+    color: #0284c7 !important;
+  }
+
+  /* Hide UI components */
+  .left-sidebar,
+  .rag-inspector,
+  .editor-toolbar,
+  .export-actions-bar,
+  .generator-presets,
+  header, 
+  aside, 
+  .print\:hidden,
+  button,
+  .custom-scrollbar::-webkit-scrollbar {
+    display: none !important;
+  }
 }

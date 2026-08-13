@@ -7,12 +7,18 @@ const MAX_FILE_SIZE = 1024 * 1024; // 1MB
 const ALWAYS_IGNORE = [
   'node_modules',
   '.git',
-  'build',
-  'dist',
-  'out',
-  'coverage',
   '.next',
-  '.nuxt'
+  'dist',
+  'build',
+  '.tauri',
+  'target',
+  '.vs',
+  '.idea',
+  '.vscode',
+  'coverage',
+  '__pycache__',
+  '.rustup',
+  '.cargo'
 ];
 
 const BINARY_EXTENSIONS = new Set([
@@ -24,7 +30,12 @@ const BINARY_EXTENSIONS = new Set([
 ]);
 
 const ALLOWED_EXTENSIONS = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.py', '.go', '.rs'
+  // Code
+  '.ts', '.tsx', '.js', '.jsx', '.go', '.py', '.rs', '.java', '.cpp', '.c', '.cs', '.sql', '.php', '.rb', '.swift', '.kt',
+  // Config & Markup
+  '.json', '.yaml', '.yml', '.toml', '.xml', '.html', '.css', '.scss', '.mjs',
+  // Docs
+  '.md', '.mdx', '.txt', '.csv'
 ]);
 
 function isBinary(filePath: string): boolean {
@@ -37,8 +48,13 @@ function isAllowedExtension(filePath: string): boolean {
   return ALLOWED_EXTENSIONS.has(ext);
 }
 
-export async function scanDirectory(dirPath: string): Promise<string[]> {
-  const files: string[] = [];
+export interface ScannedFile {
+  absolutePath: string;
+  relativePath: string;
+}
+
+export async function scanDirectory(dirPath: string): Promise<ScannedFile[]> {
+  const files: ScannedFile[] = [];
   const ig = ignore();
   
   // Try to read .gitignore if it exists
@@ -72,7 +88,10 @@ export async function scanDirectory(dirPath: string): Promise<string[]> {
           continue;
         }
 
-        files.push(entryAbsolutePath);
+        files.push({
+          absolutePath: entryAbsolutePath,
+          relativePath: entryRelativePath
+        });
       }
     }
   }

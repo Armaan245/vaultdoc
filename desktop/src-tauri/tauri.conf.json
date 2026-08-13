@@ -36,16 +36,5 @@
     "android": {
       "debugApplicationIdSuffix": ".debug"
     }
-  },
-  "plugins": {
-    "shell": {
-      "scope": [
-        {
-          "name": "node",
-          "cmd": "node",
-          "args": true
-        }
-      ]
-    }
   }
 }

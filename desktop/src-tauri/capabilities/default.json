@@ -8,7 +8,24 @@
   "permissions": [
     "core:default",
     "dialog:default",
+    "shell:default",
+    "shell:allow-spawn",
     "shell:allow-execute",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "node",
+          "cmd": "node",
+          "args": true
+        },
+        {
+          "name": "cmd",
+          "cmd": "cmd",
+          "args": true
+        }
+      ]
+    },
     {
       "identifier": "fs:allow-read",
       "allow": [{ "path": "C:/**" }, { "path": "D:/**" }]

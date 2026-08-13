@@ -4,7 +4,10 @@ export type SymbolType =
   | 'export'
   | 'interface'
   | 'type alias'
-  | 'enum';
+  | 'enum'
+  | 'schema'
+  | 'metadata'
+  | 'doc';
 
 export interface ExtractedSymbol {
   symbol: string;

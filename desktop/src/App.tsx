@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import LeftSidebar from './components/LeftSidebar';
 import EditorStudio from './components/EditorStudio';
 import RAGInspector from './components/RAGInspector';
+import SettingsModal from './components/SettingsModal';
 import { selectRepositoryFolder, parseRepository, generateDocumentation } from './services/vaultdoc';
 import type { ASTSymbol, RAGChunk } from './services/vaultdoc';
+import { getStoredTheme, applyTheme } from './services/theme';
+import type { Theme } from './services/theme';
+
+import { insertMarkdownAction } from './services/markdownEditor';
 
 function App() {
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
@@ -13,7 +18,43 @@ function App() {
   const [ragChunks, setRagChunks] = useState<RAGChunk[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
+  // Settings State
+  const [activeMode, setActiveMode] = useState<1 | 2>(1);
+  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
+  const [model, setModel] = useState('qwen2.5-coder:7b');
+
+  // Theme State
+  const [theme, setTheme] = useState<Theme>(getStoredTheme);
+
+  useEffect(() => {
+    applyTheme(theme);
+
+    const handleSync = () => {
+      const stored = getStoredTheme();
+      setTheme(stored);
+      applyTheme(stored);
+    };
+
+    window.addEventListener('storage', handleSync);
+    window.addEventListener('vaultdoc_theme_change', handleSync);
+
+    return () => {
+      window.removeEventListener('storage', handleSync);
+      window.removeEventListener('vaultdoc_theme_change', handleSync);
+    };
+  }, []);
+
+  const handleThemeChange = (newTheme: Theme) => {
+    setTheme(newTheme);
+    applyTheme(newTheme);
+  };
+
+  const handleInsertMarkdown = (action: string) => {
+    setStreamingMarkdown(prev => insertMarkdownAction(prev, action));
+  };
+
   // A mapping of file paths to extension/folder structure for the LeftSidebar
   const [fileTree, setFileTree] = useState<Set<string>>(new Set());
 
@@ -46,14 +87,11 @@ function App() {
     setStreamingMarkdown('');
     setRagChunks([]);
     
-    // Add custom loading message
-    setStreamingMarkdown('> *Initializing RAG Pipeline (LanceDB + Ollama)...*\n\n');
-
     try {
       await generateDocumentation(
         selectedRepo,
         prompt,
-        'ollama',
+        activeMode === 1 ? 'ollama' : 'cloud',
         (chunks) => {
           setRagChunks(chunks);
         },
@@ -79,12 +117,17 @@ function App() {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-vault-base">
-      <Header repoName={selectedRepo ? selectedRepo.split(/[/\\]/).pop() : undefined} />
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-vault-base relative">
+      <Header 
+        repoName={selectedRepo ? selectedRepo.split(/[/\\]/).pop() : undefined} 
+        onSelectRepo={handleSelectRepo}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        onInsertMarkdown={handleInsertMarkdown}
+      />
       
       {/* Global Error Toast */}
       {error && (
-        <div className="absolute top-14 left-1/2 transform -translate-x-1/2 z-50 bg-red-900 border border-red-500 text-white px-4 py-2 rounded shadow-lg text-sm flex items-center gap-2">
+        <div className="absolute top-14 left-1/2 transform -translate-x-1/2 z-50 bg-red-900 border border-red-500 text-white px-4 py-2 rounded shadow-lg text-sm flex items-center gap-2 print:hidden">
           <span>⚠️</span> {error}
           <button onClick={() => setError(null)} className="ml-4 opacity-70 hover:opacity-100">×</button>
         </div>
@@ -99,10 +142,25 @@ function App() {
         />
         <EditorStudio 
           markdown={streamingMarkdown} 
-          isLoading={isLoading} 
+          isLoading={isLoading}
+          onMarkdownChange={(val) => setStreamingMarkdown(val)} 
         />
         <RAGInspector chunks={ragChunks} />
       </div>
+
+      {isSettingsOpen && (
+        <SettingsModal 
+          activeMode={activeMode}
+          setActiveMode={setActiveMode}
+          ollamaUrl={ollamaUrl}
+          setOllamaUrl={setOllamaUrl}
+          model={model}
+          setModel={setModel}
+          theme={theme}
+          onThemeChange={handleThemeChange}
+          onClose={() => setIsSettingsOpen(false)} 
+        />
+      )}
     </div>
   );
 }

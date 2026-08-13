@@ -15,9 +15,9 @@ const RagCard = ({
   codeSnippet: string
 }) => {
   const colorMap = {
-    'green': 'text-vault-security border-vault-security bg-vault-securityDark',
-    'cyan': 'text-vault-accent border-vault-accent bg-vault-accent bg-opacity-20',
-    'orange': 'text-vault-orange border-vault-orange bg-vault-orange bg-opacity-20'
+    'green': 'text-vault-security border-vault-security/40 bg-vault-security/15',
+    'cyan': 'text-vault-accent border-vault-accent/40 bg-vault-accent/15',
+    'orange': 'text-vault-orange border-vault-orange/40 bg-vault-orange/15'
   };
 
   return (
@@ -27,12 +27,12 @@ const RagCard = ({
           <div className="text-[11px] font-bold text-vault-codeHighlight tracking-wider">{file}</div>
           <div className="text-xs text-vault-textBody opacity-80 mt-0.5">{desc}</div>
         </div>
-        <div className={`px-1.5 py-0.5 rounded text-[10px] font-mono border bg-opacity-10 ${colorMap[matchColor]}`}>
+        <div className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${colorMap[matchColor]}`}>
           {match}
         </div>
       </div>
       
-      <div className="bg-[#0B121E] border border-vault-border rounded p-2 overflow-hidden">
+      <div className="bg-vault-base border border-vault-border rounded p-2 overflow-hidden">
         <pre className="text-[10px] font-mono text-vault-textBody leading-relaxed whitespace-pre-wrap">
           <code>{codeSnippet.substring(0, 150)}{codeSnippet.length > 150 ? '...' : ''}</code>
         </pre>
@@ -43,12 +43,12 @@ const RagCard = ({
 
 const RAGInspector = ({ chunks }: { chunks: RAGChunk[] }) => {
   return (
-    <div className="w-[300px] flex-shrink-0 h-full bg-vault-panel border-l border-vault-border flex flex-col relative z-10 shadow-[-5px_0_15px_rgba(0,0,0,0.3)]">
+    <div className="w-[300px] flex-shrink-0 h-full bg-vault-panel border-l border-vault-border flex flex-col relative z-10 shadow-[-5px_0_15px_rgba(0,0,0,0.15)] print:hidden">
       
       <div className="p-4 border-b border-vault-border">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-vault-textBody tracking-widest uppercase">RAG Context Inspector</h3>
-          <span className="bg-vault-accent bg-opacity-20 text-vault-accent border border-vault-accent border-opacity-30 px-2 py-0.5 rounded-full text-[10px] font-bold">Top {chunks.length || 5}</span>
+          <span className="bg-vault-accent/15 text-vault-accent border border-vault-accent/30 px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wider">TOP {String(chunks.length || 5).padStart(2, '0')}</span>
         </div>
         <p className="text-[10px] text-vault-textBody opacity-60 mb-3">Retrieved AST Chunks (LanceDB)</p>
         
@@ -57,7 +57,7 @@ const RAGInspector = ({ chunks }: { chunks: RAGChunk[] }) => {
           <input 
             type="text" 
             placeholder="Filter chunks..." 
-            className="w-full bg-[#0B121E] border border-vault-border rounded py-1.5 pl-8 pr-3 text-xs text-vault-textPrimary outline-none focus:border-vault-accent transition-colors placeholder-vault-border"
+            className="w-full bg-vault-base border border-vault-border rounded py-1.5 pl-8 pr-3 text-xs text-vault-textPrimary outline-none focus:border-vault-accent transition-colors placeholder:text-vault-textBody/50"
           />
         </div>
       </div>

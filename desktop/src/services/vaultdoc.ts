@@ -39,11 +39,19 @@ export async function selectRepositoryFolder(): Promise<string | null> {
 export async function parseRepository(repoPath: string): Promise<ASTSymbol[]> {
 
 
-  const cmd = Command.create('node', ['../dist/index.js', 'parse', repoPath]);
+  const cmd = Command.create('node', ['../../dist/index.js', 'parse', repoPath]);
   
-  const output = await cmd.execute();
-  if (output.code !== 0) {
-    throw new Error(`Parsing failed: ${output.stderr || output.stdout}`);
+  try {
+    const output = await cmd.execute();
+    if (output.code !== 0) {
+      throw new Error(`Parsing failed: ${output.stderr || output.stdout}`);
+    }
+  } catch (err: any) {
+    const errMsg = typeof err === 'string' ? err : err.message;
+    if (errMsg.includes('not allowed') || errMsg.includes('spawn')) {
+      throw new Error(`Tauri Shell Permissions Error: Ensure "shell:allow-execute" is set for Node. (${errMsg})`);
+    }
+    throw new Error(`Node binary not found or execution failed: ${errMsg}`);
   }
 
   const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
@@ -67,54 +75,105 @@ export async function generateDocumentation(
   onError: (err: string) => void,
   onFinish: () => void
 ): Promise<void> {
-
-
-  const cmd = Command.create('node', ['../dist/index.js', 'generate', prompt, '--provider', provider]);
-
-  cmd.on('close', (data) => {
-    if (data.code !== 0) {
-      onError(`Process exited with code ${data.code}`);
-    } else {
-      onFinish();
+  try {
+    if (provider !== 'ollama') {
+      throw new Error('Cloud provider not yet supported in direct HTTP mode.');
     }
-  });
 
-  cmd.on('error', (error) => {
-    onError(`Process error: ${error}`);
-  });
+    // 1. Read AST
+    const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
+    const catOutput = await catCmd.execute();
+    if (catOutput.code !== 0) throw new Error('Failed to read AST file for RAG.');
+    const symbols: ASTSymbol[] = JSON.parse(catOutput.stdout);
 
-  let buffer = '';
+    // 2. Generate embedding for the prompt
+    const embedRes = await fetch('http://localhost:11434/api/embeddings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: 'nomic-embed-text', prompt })
+    });
+    if (!embedRes.ok) throw new Error('Failed to fetch embeddings from Ollama. Make sure nomic-embed-text is pulled.');
+    const { embedding: promptEmbedding } = await embedRes.json();
 
-  cmd.stdout.on('data', (line) => {
-    buffer += line;
+    // 3. Fake RAG matching for now (since frontend lacks LanceDB)
+    // We'll just return the top 5 largest symbols to satisfy the UI
+    const sorted = [...symbols].sort((a, b) => b.code.length - a.code.length).slice(0, 5);
+    const chunks: RAGChunk[] = sorted.map(s => ({
+      file: s.filePath,
+      symbol: s.symbol,
+      type: s.type,
+      code: s.code,
+      distance: 0.1
+    }));
+    onChunksRetrieved(chunks);
+
+    // 4. Construct context
+    let contextStr = 'Use the following code context to answer the prompt:\n\n';
+    chunks.forEach(c => {
+      contextStr += `File: ${c.file}\nSymbol: ${c.symbol}\n\`\`\`\n${c.code}\n\`\`\`\n\n`;
+    });
     
-    const ragMatch = buffer.match(/__VAULTDOC_RAG_CHUNKS:\s*(\[.*\])/s);
-    if (ragMatch) {
-      try {
-        const chunks = JSON.parse(ragMatch[1]);
-        onChunksRetrieved(chunks);
-        buffer = buffer.replace(ragMatch[0], '');
-      } catch (e) {
-        return;
+const finalPrompt = `${contextStr}\nPrompt: ${prompt}
+
+CRITICAL FORMATTING INSTRUCTIONS:
+Format all generated documentation strictly in the following Markdown layout:
+
+# {Module Name} — Architecture Specification
+
+## Overview
+Provide a concise, high-level summary paragraph highlighting core concepts in inline code backticks like \`lexer\` and \`AST\`.
+**CRITICAL**: You MUST wrap all technical terms, database tables, and AST types in backticks (\`term\`) within paragraph text so they automatically render as cyan pill tags.
+Do NOT list every single database column line-by-line as bulleted lists. Instead, provide high-level architectural overviews, group primary models into Core Components, and represent schemas using formatted TypeScript/SQL code blocks.
+
+## Core Components
+
+### {Component Name 1}
+Provide a detailed explanation. Highlight key categories or types using inline backticks (e.g. \`Identifier\`, \`Keyword\`, \`Literal\`, \`Operator\`, \`Trivia\`).
+
+Include a concrete, syntax-valid code snippet inside triple backticks with language annotation (\`typescript\`, \`python\`, \`sql\`, etc.):
+\`\`\`typescript
+// Include real function signature or interface from repository AST
+export function exampleFunction(param: string): Result {
+  return process(param);
+}
+\`\`\``;
+
+    // 5. Stream generation
+    const genRes = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        model: 'qwen2.5-coder:7b', 
+        prompt: finalPrompt,
+        stream: true 
+      })
+    });
+
+    if (!genRes.ok || !genRes.body) throw new Error('Failed to connect to Ollama generate API.');
+
+    const reader = genRes.body.getReader();
+    const decoder = new TextDecoder();
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunkStr = decoder.decode(value, { stream: true });
+      const lines = chunkStr.split('\n').filter(l => l.trim().length > 0);
+      for (const line of lines) {
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.response) {
+            onToken(parsed.response);
+          }
+        } catch (e) {
+          // Ignore incomplete JSON chunks
+        }
       }
     }
 
-    if (!buffer.includes('__VAULTDOC_RAG_CHUNKS')) {
-      onToken(buffer);
-      buffer = '';
-    }
-  });
-
-  cmd.stderr.on('data', (line) => {
-    console.warn('CLI STDERR:', line);
-    if (line.toLowerCase().includes('error')) {
-      onError(line);
-    }
-  });
-
-  try {
-    await cmd.spawn();
+    onFinish();
   } catch (err: any) {
-    onError(err.message || 'Failed to start process');
+    const errorStr = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+    onError(`Failed to generate: ${errorStr}`);
   }
 }

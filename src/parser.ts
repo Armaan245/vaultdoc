@@ -12,6 +12,7 @@ const LANG_WASM: Record<string, string> = {
   '.py': 'tree-sitter-python.wasm',
   '.go': 'tree-sitter-go.wasm',
   '.rs': 'tree-sitter-rust.wasm',
+  '.mjs': 'tree-sitter-javascript.wasm',
 };
 
 let parserReady = false;
@@ -38,17 +39,37 @@ export async function initParser() {
   parserReady = true;
 }
 
-export function parseFile(filePath: string): ExtractedSymbol[] {
-  const ext = path.extname(filePath).toLowerCase();
+export function parseFile(absolutePath: string, relativePath: string): ExtractedSymbol[] {
+  const ext = path.extname(absolutePath).toLowerCase();
   const lang = parsers[ext];
-  if (!lang) return [];
+  
+  if (!lang) {
+    const configDocsExts = ['.json', '.yaml', '.yml', '.toml', '.xml', '.html', '.css', '.scss', '.md', '.mdx', '.txt', '.csv', '.sql'];
+    if (configDocsExts.includes(ext)) {
+      try {
+        const code = fs.readFileSync(absolutePath, 'utf8');
+        return [{
+          symbol: path.basename(absolutePath),
+          type: ext === '.sql' ? 'schema' : (['.md', '.mdx', '.txt', '.csv'].includes(ext) ? 'doc' : 'metadata'),
+          code,
+          filePath: relativePath,
+          startLine: 1,
+          endLine: code.split('\n').length
+        }];
+      } catch (err) {
+        console.warn(`Failed to read file ${absolutePath} as raw text:`, err);
+        return [];
+      }
+    }
+    return [];
+  }
 
   const parser = new Parser();
   parser.setLanguage(lang);
 
   // Implement chunked reader to avoid loading entire file into memory as single string
-  const fd = fs.openSync(filePath, 'r');
-  const stat = fs.statSync(filePath);
+  const fd = fs.openSync(absolutePath, 'r');
+  const stat = fs.statSync(absolutePath);
   const fileSize = stat.size;
 
   const buffer = Buffer.alloc(8192); // 8KB chunk
@@ -135,7 +156,7 @@ export function parseFile(filePath: string): ExtractedSymbol[] {
         symbol: name,
         type,
         code,
-        filePath,
+        filePath: relativePath,
         startLine: node.startPosition.row + 1,
         endLine: node.endPosition.row + 1,
       });
