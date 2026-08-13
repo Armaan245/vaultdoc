@@ -7,6 +7,9 @@ interface HeaderProps {
   onOpenSettings?: () => void;
   onInsertMarkdown?: (action: string) => void;
   activeFormats?: Record<string, boolean>;
+  activeFile?: string;
+  currentLine?: number;
+  activeMode?: 1 | 2;
 }
 
 const ToolbarBtn = ({ 
@@ -32,7 +35,7 @@ const ToolbarBtn = ({
   </button>
 );
 
-const Header = ({ repoName, onSelectRepo, onOpenSettings, onInsertMarkdown, activeFormats }: HeaderProps) => {
+const Header = ({ repoName, onSelectRepo, onOpenSettings, onInsertMarkdown, activeFormats, activeFile, currentLine, activeMode = 1 }: HeaderProps) => {
   return (
     <div className="h-12 w-full bg-vault-base flex items-center justify-between px-4 border-b border-vault-border print:hidden">
       {/* Left side */}
@@ -68,20 +71,40 @@ const Header = ({ repoName, onSelectRepo, onOpenSettings, onInsertMarkdown, acti
           <ToolbarBtn active={activeFormats?.hr} onClick={() => onInsertMarkdown?.('hr')}><Minus className="w-3 h-3"/> HR</ToolbarBtn>
         </div>
 
-        <div className="flex items-center gap-2 bg-vault-security/15 border border-vault-security/30 px-3 py-1 rounded-full text-xs text-vault-security shadow-[0_0_10px_rgba(16,185,129,0.15)]">
-          <Shield className="w-3 h-3" />
-          <span className="font-medium tracking-wide">Air-Gapped Mode</span>
-          <span className="opacity-70 ml-1">100% Local</span>
+        <div className={`flex items-center gap-2 px-3 py-1 rounded-full text-xs transition-colors shadow-sm ${
+          activeMode === 1
+            ? 'bg-vault-security/15 border border-vault-security/30 text-vault-security shadow-[0_0_10px_rgba(16,185,129,0.15)]'
+            : 'bg-amber-500/15 border border-amber-500/30 text-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.15)]'
+        }`}>
+          {activeMode === 1 ? (
+            <>
+              <Shield className="w-3 h-3" />
+              <span className="font-medium tracking-wide">Air-Gapped Mode</span>
+              <span className="opacity-70 ml-1">100% Local</span>
+            </>
+          ) : (
+            <>
+              <span className="text-[10px]">☁️</span>
+              <span className="font-medium tracking-wide">Enterprise Cloud</span>
+              <span className="opacity-70 ml-1">Outbound Enabled</span>
+            </>
+          )}
         </div>
       </div>
 
       {/* Right side */}
       <div className="flex items-center gap-4">
-        <div className="flex items-center gap-2 bg-vault-panel px-3 py-1 rounded text-xs text-vault-textBody border border-vault-border opacity-70">
-          <span>parser.ts</span>
-          <span className="text-[10px]">•</span>
-          <span className="text-vault-accent">ln 67</span>
-        </div>
+        {!repoName ? (
+          <div className="flex items-center gap-2 bg-vault-panel px-3 py-1 rounded text-xs text-vault-textBody border border-vault-border opacity-40">
+            <span>No Repo Loaded</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 bg-vault-panel px-3 py-1 rounded text-xs text-vault-textBody border border-vault-border opacity-70">
+            <span>{activeFile || 'workspace'}</span>
+            <span className="text-[10px]">•</span>
+            <span className="text-vault-accent">{currentLine ? `ln ${currentLine}` : 'ready'}</span>
+          </div>
+        )}
         
         <Settings 
           onClick={onOpenSettings}

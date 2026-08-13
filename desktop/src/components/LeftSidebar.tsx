@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, Folder, Plus, Hexagon, TriangleAlert, Minus } from 'lucide-react';
+import CustomDocumentModal from './CustomDocumentModal';
 
 type TreeNode = {
   name: string;
@@ -80,8 +81,9 @@ const TreeFile = ({ node, indent = 0 }: { node: TreeNode, indent?: number }) => 
   );
 };
 
-const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTree: Set<string>, onSelectRepo: () => void, onGenerate: (prompt: string) => void, isLoading: boolean }) => {
+const LeftSidebar = ({ fileTree, onGenerate, isLoading }: { fileTree: Set<string>, onGenerate: (prompt: string) => void, isLoading: boolean }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
   const files = Array.from(fileTree);
   const hasRepo = files.length > 0;
   
@@ -115,20 +117,19 @@ const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTr
         <div className="w-8 h-8 rounded border border-vault-accent text-vault-accent flex items-center justify-center hover:bg-vault-accent hover:text-vault-base cursor-pointer transition-colors"
           onClick={() => {
             if (!hasRepo) return;
-            const p = prompt("Enter custom prompt:");
-            if (p) onGenerate(p);
+            setIsCustomModalOpen(true);
           }}
           title="Custom Document"
         >
           <Plus className="w-4 h-4" />
         </div>
+        {isCustomModalOpen && <CustomDocumentModal onClose={() => setIsCustomModalOpen(false)} onGenerate={onGenerate} />}
       </div>
     );
   }
 
   return (
     <div className="w-[240px] flex-shrink-0 h-full bg-vault-panel border-r border-vault-border flex flex-col justify-between transition-all print:hidden">
-      {/* Top Half: File Explorer */}
       <div className="flex-1 overflow-y-auto pt-4 pb-4 custom-scrollbar">
         <div className="flex items-center justify-between px-4 mb-4 text-xs font-semibold text-vault-textBody tracking-widest uppercase">
           <span>Repository</span>
@@ -153,7 +154,6 @@ const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTr
         </div>
       </div>
 
-      {/* Bottom Half: Presets */}
       <div className="pt-4 pb-6 bg-vault-panel border-t border-vault-border">
         <div className="px-4 mb-4 text-[10px] font-semibold text-vault-textBody tracking-widest uppercase opacity-70">
           Generator Presets
@@ -172,15 +172,13 @@ const LeftSidebar = ({ fileTree, onSelectRepo, onGenerate, isLoading }: { fileTr
         <div className="px-3 mt-4">
           <button 
             disabled={isLoading || !hasRepo}
-            onClick={() => {
-               const p = prompt("Enter custom prompt:");
-               if (p) onGenerate(p);
-            }}
+            onClick={() => setIsCustomModalOpen(true)}
             className="w-full flex items-center justify-center gap-2 py-2 border border-vault-accent text-vault-accent hover:bg-vault-accent hover:text-vault-base rounded transition-colors text-xs font-medium disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-vault-accent disabled:cursor-not-allowed">
             <Plus className="w-3.5 h-3.5" /> {isLoading ? 'Generating...' : 'Custom Document'}
           </button>
         </div>
       </div>
+      {isCustomModalOpen && <CustomDocumentModal onClose={() => setIsCustomModalOpen(false)} onGenerate={onGenerate} />}
     </div>
   );
 };

@@ -8,6 +8,7 @@ import { selectRepositoryFolder, parseRepository, generateDocumentation } from '
 import type { RAGChunk } from './services/vaultdoc';
 import { getStoredTheme, applyTheme } from './services/theme';
 import type { Theme } from './services/theme';
+import { getStoredProviderConfig, isLocalEndpoint } from './services/ai';
 
 function App() {
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
@@ -18,7 +19,10 @@ function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Settings State
-  const [activeMode, setActiveMode] = useState<1 | 2>(1);
+  const [activeMode, setActiveMode] = useState<1 | 2>(() => {
+    const config = getStoredProviderConfig();
+    return isLocalEndpoint(config.baseUrl) ? 1 : 2;
+  });
 
   // Theme State
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
@@ -32,12 +36,19 @@ function App() {
       applyTheme(stored);
     };
 
+    const handleConfigSync = () => {
+      const config = getStoredProviderConfig();
+      setActiveMode(isLocalEndpoint(config.baseUrl) ? 1 : 2);
+    };
+
     window.addEventListener('storage', handleSync);
     window.addEventListener('vaultdoc_theme_change', handleSync);
+    window.addEventListener('vaultdoc_config_change', handleConfigSync);
 
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('vaultdoc_theme_change', handleSync);
+      window.removeEventListener('vaultdoc_config_change', handleConfigSync);
     };
   }, []);
 
@@ -121,6 +132,9 @@ function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onInsertMarkdown={handleInsertMarkdown}
         activeFormats={activeFormats}
+        activeFile={ragChunks.length > 0 ? ragChunks[0].file.split(/[/\\]/).pop() : (fileTree.size > 0 ? 'vaultdoc-ast.json' : undefined)}
+        currentLine={ragChunks.length > 0 ? ragChunks.length : (fileTree.size > 0 ? fileTree.size : undefined)}
+        activeMode={activeMode}
       />
       
       {/* Global Error Toast */}
@@ -134,7 +148,6 @@ function App() {
       <div className="flex-1 flex overflow-hidden">
         <LeftSidebar 
           fileTree={fileTree} 
-          onSelectRepo={handleSelectRepo} 
           onGenerate={handleGenerate}
           isLoading={isLoading}
         />

@@ -128,7 +128,7 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-[40px] py-[48px] max-w-[840px] mx-auto w-full custom-scrollbar markdown-container">
+      <div className="flex-1 overflow-y-auto px-[40px] pt-[48px] pb-24 max-w-[840px] mx-auto w-full custom-scrollbar markdown-container">
         
         {!markdown && !isLoading && (
           <div className="flex flex-col items-center justify-center h-full text-vault-textBody opacity-60">
@@ -192,10 +192,10 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
                   return (
                     <div className="relative group my-6 border border-vault-border rounded-lg overflow-hidden bg-[#121927] code-block-wrapper">
                       <div className="flex items-center justify-between px-4 py-2 border-b border-vault-border/50 bg-[#0d131f] code-block-header">
-                        <span className="text-[10px] font-mono text-vault-textBody opacity-70 uppercase tracking-wider">{lang}</span>
+                        <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider">{lang}</span>
                         <button 
                           onClick={() => navigator.clipboard.writeText(codeStr)}
-                          className="text-[10px] text-vault-textBody opacity-50 hover:opacity-100 transition-opacity flex items-center gap-1 print:hidden"
+                          className="text-[10px] text-slate-400 opacity-60 hover:opacity-100 hover:text-white transition-opacity flex items-center gap-1 print:hidden"
                         >
                           <Copy className="w-3 h-3" /> copy
                         </button>
@@ -224,55 +224,60 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
         )}
       </div>
 
-      {/* Floating Action Bar */}
-      <div className="absolute bottom-6 right-8 flex items-center gap-2 export-actions-bar">
-        <button 
-          onClick={() => setViewMode(prev => prev === 'preview' ? 'edit' : 'preview')}
-          className="flex items-center gap-2 bg-vault-panel hover:bg-vault-card active:scale-95 active:bg-vault-base border border-vault-border px-3 py-2 rounded text-xs text-vault-textBody transition-all duration-150"
-          title={viewMode === 'preview' ? "Switch to Raw Editor" : "Switch to Live Preview"}
-        >
-          {viewMode === 'preview' ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-          {viewMode === 'preview' ? 'Edit Source' : 'Live Preview'}
-        </button>
-        <button 
-          onClick={() => {
-            if (!markdown) return;
-            const blob = new Blob([markdown], { type: 'text/markdown' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'vaultdoc-export.md';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-          }}
-          className="flex items-center gap-2 bg-vault-panel hover:bg-vault-card active:scale-95 active:bg-vault-base border border-vault-border px-3 py-2 rounded text-xs text-vault-textBody transition-all duration-150"
-        >
-          <Download className="w-3.5 h-3.5" /> Export .MD
-        </button>
-        <button 
-          onClick={() => window.print()}
-          className="flex items-center gap-2 bg-vault-panel hover:bg-vault-card active:scale-95 active:bg-vault-base border border-vault-border px-3 py-2 rounded text-xs text-vault-textBody transition-all duration-150"
-        >
-          <FileText className="w-3.5 h-3.5" /> Export .PDF
-        </button>
-        <button 
-          onClick={() => {
-            if (!markdown) return;
-            navigator.clipboard.writeText(markdown);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-          }}
-          className={`flex items-center gap-2 border border-vault-border px-3 py-2 rounded text-xs transition-all duration-150 active:scale-95 ${
-            copied 
-              ? 'bg-vault-security/20 text-vault-security border-vault-security/50' 
-              : 'bg-vault-panel hover:bg-vault-card text-vault-textBody active:bg-vault-base'
-          }`}
-        >
-          {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-          {copied ? 'Copied!' : 'Copy'}
-        </button>
+      {/* Dedicated Bottom Status Bar & Action Toolbar Container */}
+      <div className="sticky bottom-0 z-20 w-full border-t border-vault-border bg-vault-panel/90 backdrop-blur-md p-3 px-6 flex items-center justify-between print:hidden export-actions-bar">
+        <div className="text-[11px] font-mono text-vault-textBody opacity-70">
+          {markdown ? `${markdown.split(/\s+/).filter(Boolean).length} words • ${markdown.length} chars` : 'Ready'}
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setViewMode(prev => prev === 'preview' ? 'edit' : 'preview')}
+            className="flex items-center gap-2 bg-vault-base hover:bg-vault-card active:scale-95 border border-vault-border px-3 py-1.5 rounded text-xs text-vault-textBody hover:text-vault-textPrimary transition-all duration-150"
+            title={viewMode === 'preview' ? "Switch to Raw Editor" : "Switch to Live Preview"}
+          >
+            {viewMode === 'preview' ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+            {viewMode === 'preview' ? 'Edit Source' : 'Live Preview'}
+          </button>
+          <button 
+            onClick={() => {
+              if (!markdown) return;
+              const blob = new Blob([markdown], { type: 'text/markdown' });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = 'vaultdoc-export.md';
+              document.body.appendChild(a);
+              a.click();
+              document.body.removeChild(a);
+              URL.revokeObjectURL(url);
+            }}
+            className="flex items-center gap-2 bg-vault-base hover:bg-vault-card active:scale-95 border border-vault-border px-3 py-1.5 rounded text-xs text-vault-textBody hover:text-vault-textPrimary transition-all duration-150"
+          >
+            <Download className="w-3.5 h-3.5" /> Export .MD
+          </button>
+          <button 
+            onClick={() => window.print()}
+            className="flex items-center gap-2 bg-vault-base hover:bg-vault-card active:scale-95 border border-vault-border px-3 py-1.5 rounded text-xs text-vault-textBody hover:text-vault-textPrimary transition-all duration-150"
+          >
+            <FileText className="w-3.5 h-3.5" /> Export .PDF
+          </button>
+          <button 
+            onClick={() => {
+              if (!markdown) return;
+              navigator.clipboard.writeText(markdown);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+            className={`flex items-center gap-2 border border-vault-border px-3 py-1.5 rounded text-xs transition-all duration-150 active:scale-95 ${
+              copied 
+                ? 'bg-vault-security/20 text-vault-security border-vault-security/50' 
+                : 'bg-vault-base hover:bg-vault-card text-vault-textBody hover:text-vault-textPrimary'
+            }`}
+          >
+            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            {copied ? 'Copied!' : 'Copy'}
+          </button>
+        </div>
       </div>
     </div>
   );
