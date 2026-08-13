@@ -66,19 +66,20 @@ export async function parseRepository(repoPath: string): Promise<ASTSymbol[]> {
 /**
  * Spawns the generator service and streams tokens.
  */
+import { getStoredProviderConfig } from './ai';
+
 export async function generateDocumentation(
   repoPath: string,
   prompt: string,
-  provider: 'ollama' | 'cloud',
+  providerParam: 'ollama' | 'cloud',
   onChunksRetrieved: (chunks: RAGChunk[]) => void,
   onToken: (token: string) => void,
   onError: (err: string) => void,
   onFinish: () => void
 ): Promise<void> {
   try {
-    if (provider !== 'ollama') {
-      throw new Error('Cloud provider not yet supported in direct HTTP mode.');
-    }
+    const config = getStoredProviderConfig();
+    const baseUrl = config.baseUrl.replace(/\/$/, '');
 
     // 1. Read AST
     const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
@@ -86,17 +87,19 @@ export async function generateDocumentation(
     if (catOutput.code !== 0) throw new Error('Failed to read AST file for RAG.');
     const symbols: ASTSymbol[] = JSON.parse(catOutput.stdout);
 
-    // 2. Generate embedding for the prompt
-    const embedRes = await fetch('http://localhost:11434/api/embeddings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: 'nomic-embed-text', prompt })
-    });
-    if (!embedRes.ok) throw new Error('Failed to fetch embeddings from Ollama. Make sure nomic-embed-text is pulled.');
-    const { embedding: promptEmbedding } = await embedRes.json();
+    // 2. Fetch Embeddings (if endpoint available)
+    try {
+      const embedUrl = baseUrl.endsWith('/v1') ? `${baseUrl}/embeddings` : `${baseUrl}/api/embeddings`;
+      await fetch(embedUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: config.model, prompt })
+      });
+    } catch (e) {
+      // Optional fallback
+    }
 
-    // 3. Fake RAG matching for now (since frontend lacks LanceDB)
-    // We'll just return the top 5 largest symbols to satisfy the UI
+    // 3. Fake RAG matching for top AST symbols
     const sorted = [...symbols].sort((a, b) => b.code.length - a.code.length).slice(0, 5);
     const chunks: RAGChunk[] = sorted.map(s => ({
       file: s.filePath,
@@ -113,7 +116,7 @@ export async function generateDocumentation(
       contextStr += `File: ${c.file}\nSymbol: ${c.symbol}\n\`\`\`\n${c.code}\n\`\`\`\n\n`;
     });
     
-const finalPrompt = `${contextStr}\nPrompt: ${prompt}
+    const finalPrompt = `${contextStr}\nPrompt: ${prompt}
 
 CRITICAL FORMATTING INSTRUCTIONS:
 Format all generated documentation strictly in the following Markdown layout:
@@ -138,18 +141,41 @@ export function exampleFunction(param: string): Result {
 }
 \`\`\``;
 
-    // 5. Stream generation
-    const genRes = await fetch('http://localhost:11434/api/generate', {
+    // 5. Dynamic Client Streaming Request
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (config.apiKey && config.apiKey.trim().length > 0) {
+      headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
+    } else {
+      headers['Authorization'] = 'Bearer local';
+    }
+
+    const isOpenAIFormat = config.provider === 'lmstudio' || config.provider === 'custom' || baseUrl.endsWith('/v1');
+    const endpointUrl = isOpenAIFormat 
+      ? (baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`)
+      : `${baseUrl}/api/generate`;
+
+    const requestBody = isOpenAIFormat
+      ? JSON.stringify({
+          model: config.model,
+          messages: [
+            { role: 'system', content: 'You are VaultDoc AI technical specification generator.' },
+            { role: 'user', content: finalPrompt }
+          ],
+          stream: true
+        })
+      : JSON.stringify({
+          model: config.model,
+          prompt: finalPrompt,
+          stream: true
+        });
+
+    const genRes = await fetch(endpointUrl, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        model: 'qwen2.5-coder:7b', 
-        prompt: finalPrompt,
-        stream: true 
-      })
+      headers,
+      body: requestBody
     });
 
-    if (!genRes.ok || !genRes.body) throw new Error('Failed to connect to Ollama generate API.');
+    if (!genRes.ok || !genRes.body) throw new Error(`Failed to connect to AI provider (${genRes.status} ${genRes.statusText}).`);
 
     const reader = genRes.body.getReader();
     const decoder = new TextDecoder();
@@ -158,15 +184,30 @@ export function exampleFunction(param: string): Result {
       const { done, value } = await reader.read();
       if (done) break;
       const chunkStr = decoder.decode(value, { stream: true });
-      const lines = chunkStr.split('\n').filter(l => l.trim().length > 0);
-      for (const line of lines) {
-        try {
-          const parsed = JSON.parse(line);
-          if (parsed.response) {
-            onToken(parsed.response);
+
+      if (isOpenAIFormat) {
+        const lines = chunkStr.split('\n');
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith('data: ')) {
+            const dataStr = trimmed.substring(6).trim();
+            if (dataStr === '[DONE]') continue;
+            try {
+              const parsed = JSON.parse(dataStr);
+              const content = parsed.choices?.[0]?.delta?.content;
+              if (content) onToken(content);
+            } catch (e) {}
           }
-        } catch (e) {
-          // Ignore incomplete JSON chunks
+        }
+      } else {
+        const lines = chunkStr.split('\n').filter(l => l.trim().length > 0);
+        for (const line of lines) {
+          try {
+            const parsed = JSON.parse(line);
+            if (parsed.response) {
+              onToken(parsed.response);
+            }
+          } catch (e) {}
         }
       }
     }

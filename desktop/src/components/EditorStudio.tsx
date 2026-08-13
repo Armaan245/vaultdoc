@@ -1,17 +1,71 @@
-import { useState } from 'react';
-import { Edit3, Eye, Download, Copy, FileText, Check, Shield } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Edit3, Eye, Download, Copy, FileText, Check } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { applyMarkdownFormatting, detectActiveFormats } from '../services/markdownEditor';
 
 interface EditorStudioProps {
   markdown: string;
   isLoading: boolean;
   onMarkdownChange?: (newMarkdown: string) => void;
+  onActiveFormatsChange?: (formats: Record<string, boolean>) => void;
 }
 
-const EditorStudio = ({ markdown, isLoading, onMarkdownChange }: EditorStudioProps) => {
+const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsChange }: EditorStudioProps) => {
   const [copied, setCopied] = useState(false);
   const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
+
+  useEffect(() => {
+    const handleInsertEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ action: string }>;
+      const action = customEvent.detail?.action;
+      if (!action) return;
+
+      // Automatically switch to edit mode when formatting toolbar is clicked
+      setViewMode('edit');
+
+      const textarea = textareaRef.current;
+      let start = markdown.length;
+      let end = markdown.length;
+
+      if (textarea && document.activeElement === textarea) {
+        start = textarea.selectionStart;
+        end = textarea.selectionEnd;
+      } else if (lastSelectionRef.current.start !== 0 || lastSelectionRef.current.end !== 0) {
+        start = lastSelectionRef.current.start;
+        end = lastSelectionRef.current.end;
+      }
+
+      const { newText, cursorPosition } = applyMarkdownFormatting(markdown, action, start, end);
+      onMarkdownChange?.(newText);
+
+      const detected = detectActiveFormats(newText, cursorPosition, cursorPosition);
+      onActiveFormatsChange?.(detected);
+
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.setSelectionRange(cursorPosition, cursorPosition);
+          lastSelectionRef.current = { start: cursorPosition, end: cursorPosition };
+        }
+      }, 50);
+    };
+
+    window.addEventListener('vaultdoc_insert_markdown', handleInsertEvent);
+    return () => {
+      window.removeEventListener('vaultdoc_insert_markdown', handleInsertEvent);
+    };
+  }, [markdown, onMarkdownChange, onActiveFormatsChange]);
+
+  const handleSelectTextarea = (e: React.SyntheticEvent<HTMLTextAreaElement>) => {
+    const start = e.currentTarget.selectionStart;
+    const end = e.currentTarget.selectionEnd;
+    lastSelectionRef.current = { start, end };
+    const detected = detectActiveFormats(markdown, start, end);
+    onActiveFormatsChange?.(detected);
+  };
 
   // Dynamically extract main title from markdown (e.g. # Title) or fallback to VaultDoc standard title
   const titleMatch = markdown ? markdown.match(/^#\s+(.+)$/m) : null;
@@ -86,8 +140,12 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange }: EditorStudioPro
         {viewMode === 'edit' ? (
           <div className="w-full h-full flex flex-col min-h-[500px]">
             <textarea
+              ref={textareaRef}
               value={markdown}
               onChange={(e) => onMarkdownChange?.(e.target.value)}
+              onSelect={handleSelectTextarea}
+              onClick={handleSelectTextarea}
+              onKeyUp={handleSelectTextarea}
               placeholder="Type markdown content here or use the toolbar buttons..."
               className="w-full h-full min-h-[500px] bg-vault-card border border-vault-border rounded-lg p-6 font-mono text-sm text-vault-textPrimary outline-none focus:border-vault-accent transition-colors custom-scrollbar resize-none leading-relaxed"
             />

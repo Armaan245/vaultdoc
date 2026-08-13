@@ -1,19 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Header from './components/Header';
 import LeftSidebar from './components/LeftSidebar';
 import EditorStudio from './components/EditorStudio';
 import RAGInspector from './components/RAGInspector';
 import SettingsModal from './components/SettingsModal';
 import { selectRepositoryFolder, parseRepository, generateDocumentation } from './services/vaultdoc';
-import type { ASTSymbol, RAGChunk } from './services/vaultdoc';
+import type { RAGChunk } from './services/vaultdoc';
 import { getStoredTheme, applyTheme } from './services/theme';
 import type { Theme } from './services/theme';
 
-import { insertMarkdownAction } from './services/markdownEditor';
-
 function App() {
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
-  const [astSymbols, setAstSymbols] = useState<ASTSymbol[]>([]);
   const [streamingMarkdown, setStreamingMarkdown] = useState<string>('');
   const [ragChunks, setRagChunks] = useState<RAGChunk[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -22,8 +19,6 @@ function App() {
   
   // Settings State
   const [activeMode, setActiveMode] = useState<1 | 2>(1);
-  const [ollamaUrl, setOllamaUrl] = useState('http://localhost:11434');
-  const [model, setModel] = useState('qwen2.5-coder:7b');
 
   // Theme State
   const [theme, setTheme] = useState<Theme>(getStoredTheme);
@@ -52,7 +47,8 @@ function App() {
   };
 
   const handleInsertMarkdown = (action: string) => {
-    setStreamingMarkdown(prev => insertMarkdownAction(prev, action));
+    const event = new CustomEvent('vaultdoc_insert_markdown', { detail: { action } });
+    window.dispatchEvent(event);
   };
 
   // A mapping of file paths to extension/folder structure for the LeftSidebar
@@ -67,7 +63,6 @@ function App() {
         setError(null);
         
         const symbols = await parseRepository(repoPath);
-        setAstSymbols(symbols);
         
         const paths = new Set(symbols.map(s => s.filePath));
         setFileTree(paths);
@@ -116,6 +111,8 @@ function App() {
     }
   };
 
+  const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
+
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-vault-base relative">
       <Header 
@@ -123,6 +120,7 @@ function App() {
         onSelectRepo={handleSelectRepo}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onInsertMarkdown={handleInsertMarkdown}
+        activeFormats={activeFormats}
       />
       
       {/* Global Error Toast */}
@@ -144,6 +142,7 @@ function App() {
           markdown={streamingMarkdown} 
           isLoading={isLoading}
           onMarkdownChange={(val) => setStreamingMarkdown(val)} 
+          onActiveFormatsChange={setActiveFormats}
         />
         <RAGInspector chunks={ragChunks} />
       </div>
@@ -152,10 +151,6 @@ function App() {
         <SettingsModal 
           activeMode={activeMode}
           setActiveMode={setActiveMode}
-          ollamaUrl={ollamaUrl}
-          setOllamaUrl={setOllamaUrl}
-          model={model}
-          setModel={setModel}
           theme={theme}
           onThemeChange={handleThemeChange}
           onClose={() => setIsSettingsOpen(false)} 
