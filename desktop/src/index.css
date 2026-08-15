@@ -493,26 +493,26 @@
 
 html.light,
 html.light body {
-  background-color: #ffffff !important;
+  background-color: #fdf8fb !important;
   color: #18181b !important;
 }
 
 html.light header,
 html.light .titlebar-container {
-  background-color: #ffffff !important;
+  background-color: #fdf8fb !important;
   border-color: rgba(0, 0, 0, 0.05) !important;
   color: #18181b !important;
 }
 
 html.light aside,
 html.light .sidebar-container {
-  background-color: #ffffff !important;
+  background-color: #fbf5f8 !important;
   border-color: rgba(0, 0, 0, 0.05) !important;
   color: #18181b !important;
 }
 
 html.light main {
-  background-color: #ffffff !important;
+  background-color: #fdf8fb !important;
   color: #18181b !important;
 }
 
@@ -522,12 +522,12 @@ html.light .bg-\[\#111114\],
 html.light .bg-\[\#0B0C10\],
 html.light .bg-\[\#0b0c10\],
 html.light .bg-\[\#1a1a1e\] {
-  background-color: #ffffff !important;
+  background-color: #fdf8fb !important;
 }
 
 html.light .bg-\[\#141416\],
 html.light .bg-\[\#161619\] {
-  background-color: #ffffff !important;
+  background-color: #fdf8fb !important;
 }
 
 html.light .bg-\[\#18181c\],
@@ -540,7 +540,7 @@ html.light .bg-\[\#1c1c20\] {
 html.light .bg-\[\#222227\],
 html.light .bg-\[\#242428\],
 html.light .bg-\[\#212124\] {
-  background-color: #f0f0f4 !important;
+  background-color: #ffffff !important;
   border-color: rgba(0, 0, 0, 0.08) !important;
   color: #18181b !important;
 }
@@ -647,17 +647,17 @@ html.light .bg-white\/10 {
 
 /* Get Plus Badge in Light Mode */
 html.light .bg-\[\#23153c\] {
-  background-color: #f3e8ff !important;
-  border-color: #d8b4fe !important;
-  color: #7e22ce !important;
+  background-color: #f4ebff !important;
+  border-color: transparent !important;
+  color: #9333ea !important;
 }
 
 html.light .bg-\[\#23153c\] span {
-  color: #7e22ce !important;
+  color: #9333ea !important;
 }
 
 html.light .bg-\[\#23153c\] svg {
-  color: #7e22ce !important;
+  color: #9333ea !important;
 }
 
 /* Sidebar Active Nav & Projects */
@@ -749,4 +749,181 @@ html.light .bg-emerald-950\/40 {
 html.light .bg-emerald-950\/40 span {
   color: #166534 !important;
 }
+
+/* Custom Dropdown UI */
+.custom-dropdown-btn {
+  background-color: #222227;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.custom-dropdown-menu {
+  background-color: #18181c;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+}
+.custom-dropdown-item {
+  color: #d4d4d8;
+}
+.custom-dropdown-item:hover {
+  background-color: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+html.light .custom-dropdown-btn {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+html.light .custom-dropdown-btn:hover {
+  background-color: #f8f9fa !important;
+}
+html.light .custom-dropdown-menu {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12) !important;
+}
+html.light .custom-dropdown-item {
+  color: #27272a !important;
+}
+html.light .custom-dropdown-item:hover {
+  background-color: #f4f4f6 !important;
+  color: #18181b !important;
+}
+html.light .custom-dropdown-item svg {
+  color: #18181b !important;
+}
+
+/* Profile Activity & Plugins Cards */
+.profile-activity-card {
+  background-color: rgba(24, 24, 28, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.profile-grid-dot {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+.profile-grid-dot:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+.profile-plugins-card {
+  background-color: rgba(24, 24, 28, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+html.light .profile-activity-card {
+  background-color: transparent !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+html.light .profile-grid-dot {
+  background-color: #ebedf0 !important;
+}
+html.light .profile-grid-dot:hover {
+  background-color: #d1d5db !important;
+}
+html.light .profile-plugins-card {
+  background-color: transparent !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Modals & Overlays Styling (Edit Profile & Share Activity) */
+.profile-modal-overlay {
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+}
+.profile-modal-card {
+  background-color: #1c1c20;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.profile-modal-inner {
+  background-color: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.profile-modal-input {
+  background-color: #222227;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+}
+.profile-modal-btn-save {
+  background-color: #ffffff;
+  color: #000000;
+}
+.profile-modal-btn-save:hover {
+  background-color: #e4e4e7;
+}
+
+/* Light Theme Overrides for Modals */
+html.light .profile-modal-overlay {
+  background-color: rgba(255, 255, 255, 0.65) !important;
+  backdrop-filter: blur(16px) !important;
+}
+html.light .profile-modal-card {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #18181b !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12) !important;
+}
+html.light .profile-modal-inner {
+  background-color: #f8f9fa !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+}
+html.light .profile-modal-input {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.12) !important;
+  color: #18181b !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+}
+html.light .profile-modal-input:focus {
+  border-color: rgba(0, 0, 0, 0.3) !important;
+}
+html.light .profile-modal-btn-save {
+  background-color: #18181b !important;
+  color: #ffffff !important;
+}
+html.light .profile-modal-btn-save:hover {
+  background-color: #27272a !important;
+}
+html.light .profile-modal-btn-cancel {
+  color: #71717a !important;
+}
+html.light .profile-modal-btn-cancel:hover {
+  color: #18181b !important;
+}
+
+/* Share Modal Elements */
+.share-modal-overlay {
+  background-color: rgba(14, 14, 17, 0.9);
+  backdrop-filter: blur(12px);
+}
+.share-modal-card {
+  background-color: #18181c;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+.share-social-icon {
+  background-color: #18181c;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+html.light .share-modal-overlay {
+  background-color: rgba(253, 248, 251, 0.8) !important;
+  backdrop-filter: blur(16px) !important;
+}
+html.light .share-modal-card {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  color: #18181b !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.08) !important;
+}
+html.light .share-social-icon {
+  background-color: #18181b !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
 

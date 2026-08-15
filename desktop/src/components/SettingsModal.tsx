@@ -22,7 +22,16 @@ import {
   Folder,
   Copy,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  User,
+  ChevronDown,
+  Share,
+  Lock,
+  Edit2,
+  Pencil,
+  X,
+  Download,
+  Globe
 } from 'lucide-react';
 import { 
   getStoredThemeConfig, 
@@ -50,8 +59,76 @@ interface SettingsProps {
   onClose: () => void;
 }
 
+interface CustomSelectOption {
+  label: string;
+  value: string;
+}
+
+const CustomSelect = ({ 
+  value, 
+  onChange, 
+  options, 
+  className = '',
+  widthClass = 'w-44'
+}: { 
+  value: string; 
+  onChange: (val: string) => void; 
+  options: (string | CustomSelectOption)[];
+  className?: string;
+  widthClass?: string;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const ref = React.useRef<HTMLDivElement>(null);
+  
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const normalizedOptions: CustomSelectOption[] = options.map(opt => 
+    typeof opt === 'string' ? { label: opt, value: opt } : opt
+  );
+
+  const selectedOption = normalizedOptions.find(o => o.value === value) || { label: value, value };
+
+  return (
+    <div className={`relative ${className}`} ref={ref}>
+      <button 
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`custom-dropdown-btn flex items-center justify-between gap-2.5 rounded-xl px-3 py-1.5 text-xs outline-none transition-colors cursor-pointer ${widthClass}`}
+      >
+        <span className="font-normal truncate text-left">{selectedOption.label}</span>
+        <ChevronDown size={13} className="text-slate-400 shrink-0" />
+      </button>
+      
+      {isOpen && (
+        <div className={`custom-dropdown-menu absolute right-0 top-full mt-1.5 rounded-xl py-1.5 z-50 overflow-hidden shadow-2xl animate-fadeIn ${widthClass === 'w-full' ? 'w-full' : (widthClass.startsWith('w-') ? widthClass : 'min-w-[170px]')}`}>
+          {normalizedOptions.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { onChange(opt.value); setIsOpen(false); }}
+              className="custom-dropdown-item flex items-center justify-between w-full px-3.5 py-2 text-xs text-left transition-colors cursor-pointer"
+            >
+              <span className={`truncate ${value === opt.value ? 'font-medium' : 'font-normal'}`}>{opt.label}</span>
+              {value === opt.value && <Check size={13} className="shrink-0 ml-2" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 type SettingCategory = 
   | 'general'
+  | 'profile'
   | 'appearance'
   | 'shortcuts'
   | 'model'
@@ -69,6 +146,11 @@ export const SettingsModal: React.FC<SettingsProps> = ({
 }) => {
   const [activeCategory, setActiveCategory] = useState<SettingCategory>('general');
   const [searchQuery, setSearchQuery] = useState('');
+  const contentMainRef = React.useRef<HTMLElement>(null);
+
+  React.useEffect(() => {
+    contentMainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, [activeCategory]);
 
   // AI Model State
   const [config, setConfig] = useState<ProviderConfig>(getStoredProviderConfig);
@@ -81,6 +163,51 @@ export const SettingsModal: React.FC<SettingsProps> = ({
   // GitHub State
   const [gitHubConfig, setGitHubConfig] = useState<GitHubConfig>(getStoredGitHubConfig);
   const [showGitHubToken, setShowGitHubToken] = useState<boolean>(false);
+
+  // User Profile State
+  const [displayName, setDisplayName] = useState<string>(() => localStorage.getItem('vaultdoc_profile_name') || 'Armaan Mujawar');
+  const [username, setUsername] = useState<string>(() => localStorage.getItem('vaultdoc_profile_username') || '@armujawar245');
+  const [isPrivate, setIsPrivate] = useState<boolean>(true);
+  const [isEditProfileOpen, setIsEditProfileOpen] = useState<boolean>(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [editDisplayName, setEditDisplayName] = useState<string>('Armaan Mujawar');
+  const [editUsername, setEditUsername] = useState<string>('@armujawar245');
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+    return name.slice(0, 2).toUpperCase() || 'AM';
+  };
+
+  const handleOpenEdit = () => {
+    setEditDisplayName(displayName);
+    setEditUsername(username);
+    setIsEditProfileOpen(true);
+  };
+
+  const handleSaveProfile = () => {
+    const trimmedName = editDisplayName.trim() || 'User';
+    const formattedUsername = editUsername.trim().startsWith('@') 
+      ? editUsername.trim() 
+      : `@${editUsername.trim() || 'user'}`;
+    
+    setDisplayName(trimmedName);
+    setUsername(formattedUsername);
+    localStorage.setItem('vaultdoc_profile_name', trimmedName);
+    localStorage.setItem('vaultdoc_profile_username', formattedUsername);
+    setIsEditProfileOpen(false);
+  };
+
+  const handleSharePlatform = (platform: string) => {
+    setShareFeedback(platform);
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(`Check out my coding activity on VaultDoc: https://vaultdoc.dev/u/${username.replace('@', '')}`);
+    }
+    setTimeout(() => setShareFeedback(null), 2000);
+  };
 
   // Workbench Preferences State
   const [workspaceRw, setWorkspaceRw] = useState<boolean>(true);
@@ -175,9 +302,10 @@ export const SettingsModal: React.FC<SettingsProps> = ({
 
   const navCategories = [
     {
-      group: 'WORKBENCH',
+      group: 'PERSONAL',
       items: [
         { id: 'general' as SettingCategory, label: 'General', icon: Settings },
+        { id: 'profile' as SettingCategory, label: 'Profile', icon: User },
         { id: 'appearance' as SettingCategory, label: 'Appearance & Theme', icon: Palette },
         { id: 'shortcuts' as SettingCategory, label: 'Keyboard shortcuts', icon: Keyboard },
       ]
@@ -282,7 +410,7 @@ export const SettingsModal: React.FC<SettingsProps> = ({
         </aside>
 
         {/* Right Settings Content Canvas (Scrollable) */}
-        <main className="flex-1 h-full overflow-y-auto custom-scrollbar bg-[#111114] p-8">
+        <main ref={contentMainRef} className="flex-1 h-full overflow-y-auto custom-scrollbar bg-[#111114] p-8">
           <div className="max-w-[760px] mx-auto space-y-8 animate-fadeIn pb-16">
 
             {/* 1. GENERAL */}
@@ -354,16 +482,11 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                         <h4 className="text-xs font-medium text-white">Default Diff Viewer / Editor</h4>
                         <p className="text-[11px] text-slate-400 mt-0.5">Choose where code files and PR diffs open when clicked.</p>
                       </div>
-                      <select
+                      <CustomSelect 
                         value={defaultEditor}
-                        onChange={(e) => setDefaultEditor(e.target.value)}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Antigravity">Antigravity Studio</option>
-                        <option value="VS Code">VS Code</option>
-                        <option value="Cursor">Cursor</option>
-                        <option value="Built-in Viewer">Built-in Viewer</option>
-                      </select>
+                        onChange={(val) => setDefaultEditor(val)}
+                        options={['Antigravity Studio', 'VS Code', 'Cursor', 'Built-in Viewer']}
+                      />
                     </div>
 
                     <div className="border-t border-white/[0.04]" />
@@ -373,17 +496,138 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                         <h4 className="text-xs font-medium text-white">Integrated Terminal Shell</h4>
                         <p className="text-[11px] text-slate-400 mt-0.5">Shell used for test execution and CLI script tasks.</p>
                       </div>
-                      <select
+                      <CustomSelect 
                         value={terminalShell}
-                        onChange={(e) => setTerminalShell(e.target.value)}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="PowerShell">PowerShell</option>
-                        <option value="WSL / Bash">WSL / Bash</option>
-                        <option value="Command Prompt">Command Prompt</option>
-                      </select>
+                        onChange={(val) => setTerminalShell(val)}
+                        options={['PowerShell', 'Command Prompt', 'Git Bash', 'WSL']}
+                      />
                     </div>
 
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PROFILE SECTION */}
+            {activeCategory === 'profile' && (
+              <div className="space-y-8 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h1 className="text-2xl font-medium text-white tracking-tight">Profile</h1>
+                  <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsShareModalOpen(true)}
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <Share size={14} />
+                      <span>Share</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsPrivate(prev => !prev)}
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {isPrivate ? <Lock size={14} /> : <Globe size={14} />}
+                      <span>{isPrivate ? 'Private' : 'Public'}</span>
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={handleOpenEdit}
+                      className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <Edit2 size={14} />
+                      <span>Edit</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center pt-3 pb-2 space-y-3">
+                  <div className="w-20 h-20 rounded-full bg-[#10a37f] flex items-center justify-center text-2xl font-semibold text-white shadow-md">
+                    {getInitials(displayName)}
+                  </div>
+                  <div className="text-center">
+                    <h2 className="text-xl font-medium text-white">{displayName}</h2>
+                    <p className="text-xs text-slate-400 mt-1">{username} · <span className="text-slate-400">Free</span></p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 gap-3.5 max-w-2xl mx-auto">
+                  <div className="bg-[#18181c] border border-white/5 rounded-2xl p-4 text-center">
+                    <div className="text-xl font-semibold text-white">0</div>
+                    <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-medium">Lifetime tokens</div>
+                  </div>
+                  <div className="bg-[#18181c] border border-white/5 rounded-2xl p-4 text-center">
+                    <div className="text-xl font-semibold text-white">0</div>
+                    <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-medium">Peak tokens</div>
+                  </div>
+                  <div className="bg-[#18181c] border border-white/5 rounded-2xl p-4 text-center">
+                    <div className="text-xl font-semibold text-white">0<span className="text-xs font-normal text-slate-400 ml-1">days</span></div>
+                    <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-medium">Current streak</div>
+                  </div>
+                  <div className="bg-[#18181c] border border-white/5 rounded-2xl p-4 text-center">
+                    <div className="text-xl font-semibold text-white">0<span className="text-xs font-normal text-slate-400 ml-1">days</span></div>
+                    <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-medium">Longest streak</div>
+                  </div>
+                </div>
+
+                {/* Token Activity & Insights */}
+                <div className="max-w-2xl mx-auto space-y-8 pt-2">
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-xs font-semibold text-white">Token activity</h3>
+                      <div className="flex items-center gap-3 text-xs text-slate-400">
+                        <button type="button" className="text-white font-medium cursor-pointer">Daily</button>
+                        <button type="button" className="hover:text-slate-300 cursor-pointer">Weekly</button>
+                        <button type="button" className="hover:text-slate-300 cursor-pointer">Cumulative</button>
+                      </div>
+                    </div>
+                    {/* Token activity graph */}
+                    <div className="profile-activity-card rounded-2xl p-4 flex flex-col justify-between h-36 border">
+                      <div className="grid grid-cols-[repeat(52,minmax(0,1fr))] grid-rows-7 gap-[3px] w-full h-[76px]">
+                        {Array.from({ length: 364 }).map((_, i) => (
+                          <div key={i} className="profile-grid-dot rounded-[2px] transition-colors" />
+                        ))}
+                      </div>
+                      <div className="flex justify-between text-[10px] text-slate-400 font-sans pt-2 px-1">
+                        <span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span><span>Jul</span><span>Aug</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-8">
+                    <div>
+                      <h3 className="text-xs font-semibold text-white mb-4">Activity insights</h3>
+                      <div className="space-y-3.5">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Fast Mode</span>
+                          <span className="text-slate-400 font-normal">Not used</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Most used reasoning</span>
+                          <span className="text-slate-400 font-normal">Not used</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Skills explored</span>
+                          <span className="text-slate-400 font-normal">None</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Total skills used</span>
+                          <span className="text-slate-400 font-normal">None</span>
+                        </div>
+                        <div className="flex justify-between text-xs">
+                          <span className="text-slate-400">Total chats</span>
+                          <span className="text-slate-400 font-normal">None</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-xs font-semibold text-white mb-4">Most used plugins</h3>
+                      <div className="profile-plugins-card border rounded-2xl p-6 flex flex-col items-center justify-center text-center h-[160px]">
+                        <div className="w-6 h-6 rounded-full border border-slate-300 dark:border-white/20 flex items-center justify-center text-[10px] text-slate-400 mb-2">@</div>
+                        <p className="text-xs text-slate-400">No plugins used yet · <button type="button" className="text-slate-600 dark:text-slate-300 hover:underline cursor-pointer">Browse</button></p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -575,18 +819,15 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                       <span className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 text-slate-300 flex items-center justify-center text-[11px] font-bold">
                         Aa
                       </span>
-                      <select
+                      <CustomSelect
                         value={themeConfig.lightTheme.preset}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          lightTheme: { ...prev.lightTheme, preset: e.target.value }
+                          lightTheme: { ...prev.lightTheme, preset: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Codex">Codex</option>
-                        <option value="GitHub Light">GitHub Light</option>
-                        <option value="Solarized Light">Solarized Light</option>
-                      </select>
+                        options={['Codex', 'GitHub Light', 'Solarized Light']}
+                        widthClass="w-36"
+                      />
                     </div>
                   </div>
 
@@ -653,31 +894,24 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-300">UI font</span>
                     <div className="flex items-center gap-2">
-                      <select
+                      <CustomSelect
                         value={themeConfig.lightTheme.uiFont}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          lightTheme: { ...prev.lightTheme, uiFont: e.target.value }
+                          lightTheme: { ...prev.lightTheme, uiFont: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="System default">System default</option>
-                        <option value="Inter">Inter</option>
-                        <option value="Roboto">Roboto</option>
-                        <option value="Geist">Geist</option>
-                      </select>
-                      <select
+                        options={['System default', 'Inter', 'Roboto', 'Geist']}
+                        widthClass="w-36"
+                      />
+                      <CustomSelect
                         value={themeConfig.lightTheme.uiFontWeight}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          lightTheme: { ...prev.lightTheme, uiFontWeight: e.target.value }
+                          lightTheme: { ...prev.lightTheme, uiFontWeight: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Regular">Regular</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Bold">Bold</option>
-                      </select>
+                        options={['Regular', 'Medium', 'Bold']}
+                        widthClass="w-28"
+                      />
                     </div>
                   </div>
 
@@ -685,31 +919,24 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-300">Code font</span>
                     <div className="flex items-center gap-2">
-                      <select
+                      <CustomSelect
                         value={themeConfig.lightTheme.codeFont}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          lightTheme: { ...prev.lightTheme, codeFont: e.target.value }
+                          lightTheme: { ...prev.lightTheme, codeFont: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="System default">System default</option>
-                        <option value="Fira Code">Fira Code</option>
-                        <option value="JetBrains Mono">JetBrains Mono</option>
-                        <option value="Consolas">Consolas</option>
-                      </select>
-                      <select
+                        options={['System default', 'Fira Code', 'JetBrains Mono', 'Consolas']}
+                        widthClass="w-36"
+                      />
+                      <CustomSelect
                         value={themeConfig.lightTheme.codeFontWeight}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          lightTheme: { ...prev.lightTheme, codeFontWeight: e.target.value }
+                          lightTheme: { ...prev.lightTheme, codeFontWeight: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Regular">Regular</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Bold">Bold</option>
-                      </select>
+                        options={['Regular', 'Medium', 'Bold']}
+                        widthClass="w-28"
+                      />
                     </div>
                   </div>
 
@@ -766,19 +993,15 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                       <span className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 text-slate-300 flex items-center justify-center text-[11px] font-bold">
                         Aa
                       </span>
-                      <select
+                      <CustomSelect
                         value={themeConfig.darkTheme.preset}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          darkTheme: { ...prev.darkTheme, preset: e.target.value }
+                          darkTheme: { ...prev.darkTheme, preset: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Codex">Codex</option>
-                        <option value="Obsidian Slate">Obsidian Slate</option>
-                        <option value="Midnight Blue">Midnight Blue</option>
-                        <option value="Pure Black OLED">Pure Black OLED</option>
-                      </select>
+                        options={['Codex', 'Obsidian Slate', 'Midnight Blue', 'Pure Black OLED']}
+                        widthClass="w-40"
+                      />
                     </div>
                   </div>
 
@@ -845,31 +1068,24 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-300">UI font</span>
                     <div className="flex items-center gap-2">
-                      <select
+                      <CustomSelect
                         value={themeConfig.darkTheme.uiFont}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          darkTheme: { ...prev.darkTheme, uiFont: e.target.value }
+                          darkTheme: { ...prev.darkTheme, uiFont: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="System default">System default</option>
-                        <option value="Inter">Inter</option>
-                        <option value="Roboto">Roboto</option>
-                        <option value="Geist">Geist</option>
-                      </select>
-                      <select
+                        options={['System default', 'Inter', 'Roboto', 'Geist']}
+                        widthClass="w-36"
+                      />
+                      <CustomSelect
                         value={themeConfig.darkTheme.uiFontWeight}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          darkTheme: { ...prev.darkTheme, uiFontWeight: e.target.value }
+                          darkTheme: { ...prev.darkTheme, uiFontWeight: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Regular">Regular</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Bold">Bold</option>
-                      </select>
+                        options={['Regular', 'Medium', 'Bold']}
+                        widthClass="w-28"
+                      />
                     </div>
                   </div>
 
@@ -877,31 +1093,24 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-slate-300">Code font</span>
                     <div className="flex items-center gap-2">
-                      <select
+                      <CustomSelect
                         value={themeConfig.darkTheme.codeFont}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          darkTheme: { ...prev.darkTheme, codeFont: e.target.value }
+                          darkTheme: { ...prev.darkTheme, codeFont: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="System default">System default</option>
-                        <option value="Fira Code">Fira Code</option>
-                        <option value="JetBrains Mono">JetBrains Mono</option>
-                        <option value="Consolas">Consolas</option>
-                      </select>
-                      <select
+                        options={['System default', 'Fira Code', 'JetBrains Mono', 'Consolas']}
+                        widthClass="w-36"
+                      />
+                      <CustomSelect
                         value={themeConfig.darkTheme.codeFontWeight}
-                        onChange={(e) => updateThemeConfig(prev => ({
+                        onChange={(val) => updateThemeConfig(prev => ({
                           ...prev,
-                          darkTheme: { ...prev.darkTheme, codeFontWeight: e.target.value }
+                          darkTheme: { ...prev.darkTheme, codeFontWeight: val }
                         }))}
-                        className="bg-[#222227] border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white outline-none cursor-pointer"
-                      >
-                        <option value="Regular">Regular</option>
-                        <option value="Medium">Medium</option>
-                        <option value="Bold">Bold</option>
-                      </select>
+                        options={['Regular', 'Medium', 'Bold']}
+                        widthClass="w-28"
+                      />
                     </div>
                   </div>
 
@@ -1153,24 +1362,12 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
                       Active Model
                     </label>
-                    <select
+                    <CustomSelect
                       value={config.model}
-                      onChange={(e) => {
-                        setConfig({ ...config, model: e.target.value });
-                      }}
-                      className="w-full bg-[#222227] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-mono text-white outline-none cursor-pointer"
-                    >
-                      {availableModels.length > 0 ? (
-                        availableModels.map(m => <option key={m} value={m}>{m}</option>)
-                      ) : (
-                        <>
-                          <option value="qwen2.5-coder:7b">qwen2.5-coder:7b</option>
-                          <option value="deepseek-coder-v2">deepseek-coder-v2</option>
-                          <option value="llama3.1">llama3.1</option>
-                          <option value="5.6 Terra Medium">5.6 Terra Medium</option>
-                        </>
-                      )}
-                    </select>
+                      onChange={(val) => setConfig({ ...config, model: val })}
+                      options={availableModels.length > 0 ? availableModels : ['qwen2.5-coder:7b', 'deepseek-coder-v2', 'llama3.1', '5.6 Terra Medium']}
+                      widthClass="w-full"
+                    />
                   </div>
 
                   <div className="border-t border-white/[0.04]" />
@@ -1252,15 +1449,16 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                   {/* Embedding Model */}
                   <div>
                     <label className="block text-xs font-medium text-slate-300 mb-1.5">Embedding Model</label>
-                    <select
+                    <CustomSelect
                       value={embeddingModel}
-                      onChange={(e) => setEmbeddingModel(e.target.value)}
-                      className="w-full bg-[#222227] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-mono text-white outline-none cursor-pointer"
-                    >
-                      <option value="nomic-embed-text">nomic-embed-text (512-dim, Fast)</option>
-                      <option value="bge-small-en-v1.5">bge-small-en-v1.5 (384-dim, Accurate)</option>
-                      <option value="all-MiniLM-L6-v2">all-MiniLM-L6-v2 (384-dim)</option>
-                    </select>
+                      onChange={(val) => setEmbeddingModel(val)}
+                      options={[
+                        { label: 'nomic-embed-text (512-dim, Fast)', value: 'nomic-embed-text' },
+                        { label: 'bge-small-en-v1.5 (384-dim, Accurate)', value: 'bge-small-en-v1.5' },
+                        { label: 'all-MiniLM-L6-v2 (384-dim)', value: 'all-MiniLM-L6-v2' }
+                      ]}
+                      widthClass="w-full"
+                    />
                   </div>
 
                   <div className="border-t border-white/[0.04]" />
@@ -1543,6 +1741,208 @@ export const SettingsModal: React.FC<SettingsProps> = ({
         </main>
 
       </div>
+
+      {/* Edit Profile Modal */}
+      {isEditProfileOpen && (
+        <div className="profile-modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="profile-modal-card rounded-3xl p-6 shadow-2xl w-full max-w-[460px] space-y-6 animate-scaleIn">
+            <h2 className="text-base font-semibold">Edit profile</h2>
+            
+            {/* Center Avatar with Pencil Badge */}
+            <div className="flex justify-center pt-1">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full bg-[#10a37f] flex items-center justify-center text-3xl font-semibold text-white shadow-md">
+                  {getInitials(editDisplayName)}
+                </div>
+                <button
+                  type="button"
+                  title="Change avatar"
+                  className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#10a37f] hover:bg-[#0d8a6b] text-white flex items-center justify-center border-2 border-white dark:border-[#1c1c20] shadow-sm cursor-pointer transition-transform hover:scale-105"
+                >
+                  <Pencil size={12} />
+                </button>
+              </div>
+            </div>
+
+            {/* Form Fields Card */}
+            <div className="profile-modal-inner rounded-2xl p-4 space-y-3.5">
+              <div className="flex items-center justify-between gap-4">
+                <label className="text-xs font-normal opacity-70 shrink-0">Display name</label>
+                <input 
+                  type="text"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="Your Name"
+                  className="profile-modal-input rounded-xl px-3.5 py-1.5 text-xs outline-none w-56 text-left transition-colors shadow-sm font-normal"
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-4">
+                <label className="text-xs font-normal opacity-70 shrink-0">Username</label>
+                <input 
+                  type="text"
+                  value={editUsername}
+                  onChange={(e) => setEditUsername(e.target.value)}
+                  placeholder="@username"
+                  className="profile-modal-input rounded-xl px-3.5 py-1.5 text-xs outline-none w-56 text-left transition-colors shadow-sm font-normal"
+                />
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-end gap-3 pt-1">
+              <button 
+                type="button" 
+                onClick={() => setIsEditProfileOpen(false)}
+                className="profile-modal-btn-cancel px-4 py-2 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button 
+                type="button"
+                onClick={handleSaveProfile}
+                className="profile-modal-btn-save px-5 py-2 text-xs font-medium rounded-xl transition-colors cursor-pointer shadow-sm"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Share Activity Modal */}
+      {isShareModalOpen && (
+        <div className="share-modal-overlay fixed inset-0 z-50 flex flex-col items-center justify-center p-6 animate-fadeIn">
+          {/* Close Button */}
+          <button 
+            type="button"
+            onClick={() => setIsShareModalOpen(false)}
+            className="absolute top-6 right-6 p-2.5 opacity-60 hover:opacity-100 transition-opacity cursor-pointer rounded-full"
+          >
+            <X size={22} />
+          </button>
+
+          <h2 className="text-xl font-medium mb-8 tracking-tight">Share your activity</h2>
+
+          {/* Activity Share Preview Card */}
+          <div className="share-modal-card w-full max-w-[460px] rounded-3xl p-6 shadow-2xl space-y-6 animate-scaleIn">
+            
+            {/* Header Identity Row */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#10a37f] flex items-center justify-center text-sm font-semibold text-white shadow-sm">
+                  {getInitials(displayName)}
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold">{displayName}</h3>
+                  <p className="text-xs opacity-60">{username}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 font-medium text-xs">
+                <svg className="w-4 h-4 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+                </svg>
+                <span>VaultDoc</span>
+              </div>
+            </div>
+
+            {/* Contribution Grid Preview */}
+            <div className="grid grid-cols-[repeat(26,minmax(0,1fr))] grid-rows-7 gap-[3px] py-2">
+              {Array.from({ length: 182 }).map((_, i) => (
+                <div key={i} className="profile-grid-dot h-2.5 rounded-[2px]" />
+              ))}
+            </div>
+
+            {/* Bottom Metrics Bar */}
+            <div className="grid grid-cols-4 gap-2 pt-3 border-t border-black/5 dark:border-white/5 text-center">
+              <div>
+                <div className="text-sm font-semibold">0</div>
+                <div className="text-[10px] opacity-60 mt-0.5 lowercase font-normal">lifetime tokens</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">0</div>
+                <div className="text-[10px] opacity-60 mt-0.5 lowercase font-normal">peak day</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">0 days</div>
+                <div className="text-[10px] opacity-60 mt-0.5 lowercase font-normal">current streak</div>
+              </div>
+              <div>
+                <div className="text-sm font-semibold">0 days</div>
+                <div className="text-[10px] opacity-60 mt-0.5 lowercase font-normal">longest streak</div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Social Platform Icons */}
+          <div className="flex items-center gap-6 mt-8">
+            {/* X */}
+            <button 
+              type="button" 
+              onClick={() => handleSharePlatform('X')}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
+              <div className="share-social-icon w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                  <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                </svg>
+              </div>
+              <span className="text-xs opacity-70 group-hover:opacity-100 transition-opacity">
+                {shareFeedback === 'X' ? 'Copied!' : 'X'}
+              </span>
+            </button>
+
+            {/* LinkedIn */}
+            <button 
+              type="button" 
+              onClick={() => handleSharePlatform('LinkedIn')}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
+              <div className="share-social-icon w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                </svg>
+              </div>
+              <span className="text-xs opacity-70 group-hover:opacity-100 transition-opacity">
+                {shareFeedback === 'LinkedIn' ? 'Copied!' : 'LinkedIn'}
+              </span>
+            </button>
+
+            {/* Reddit */}
+            <button 
+              type="button" 
+              onClick={() => handleSharePlatform('Reddit')}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
+              <div className="share-social-icon w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.56 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701z"/>
+                </svg>
+              </div>
+              <span className="text-xs opacity-70 group-hover:opacity-100 transition-opacity">
+                {shareFeedback === 'Reddit' ? 'Copied!' : 'Reddit'}
+              </span>
+            </button>
+
+            {/* Save */}
+            <button 
+              type="button" 
+              onClick={() => handleSharePlatform('Save')}
+              className="flex flex-col items-center gap-2 group cursor-pointer"
+            >
+              <div className="share-social-icon w-12 h-12 rounded-full flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                <Download size={20} />
+              </div>
+              <span className="text-xs opacity-70 group-hover:opacity-100 transition-opacity">
+                {shareFeedback === 'Save' ? 'Saved!' : 'Save'}
+              </span>
+            </button>
+          </div>
+
+        </div>
+      )}
     </div>
   );
 };
