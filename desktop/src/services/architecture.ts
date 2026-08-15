@@ -55,6 +55,11 @@ export function generateArchitectureModel(symbols: ASTSymbol[]): {
 
   for (const f of allFiles) {
     const lower = f.toLowerCase();
+    // Exclude docs/markdown from being treated as runtime architecture
+    if (lower.endsWith('.md') || lower.endsWith('.txt') || lower.endsWith('.json') || lower.endsWith('.yaml') || lower.endsWith('.yml')) {
+      continue;
+    }
+
     const syms = fileMap.get(f) || [];
     const symNames = syms.map(s => s.symbol.toLowerCase()).join(' ');
 
@@ -137,58 +142,102 @@ export function generateArchitectureModel(symbols: ASTSymbol[]): {
     });
   }
 
-  // 3. Dynamic System Design Diagram (flowchart LR with real AST files & high-tech card formatting)
+  // 3. Dynamic System Design Diagram (Macro Level Domains)
+  let systemDiagram = `flowchart LR\n`;
+  systemDiagram += `    Client["<div class='arch-card arch-client'><div class='arch-title'>Web / Mobile Clients</div><div class='arch-sub'>Ingress Routes & UI</div></div>"]\n`;
+  
+  if (routerFiles.length > 0) {
+    const rNames = routerFiles.slice(0, 2).map(f => f.split(/[/\\]/).pop()).join(', ');
+    systemDiagram += `    Gateway["<div class='arch-card arch-gateway'><div class='arch-title'>API Gateway & Routers</div><div class='arch-sub'>${routerFiles.length} endpoints (${rNames})</div></div>"]\n`;
+  }
+  
+  if (serviceFiles.length > 0) {
+    const sNames = serviceFiles.slice(0, 2).map(f => f.split(/[/\\]/).pop()).join(', ');
+    systemDiagram += `    Core["<div class='arch-card arch-core arch-active'><div class='arch-title'>Core Business Engine</div><div class='arch-sub'>${serviceFiles.length} services (${sNames})</div></div>"]\n`;
+  }
+  
+  if (modelFiles.length > 0) {
+    const mNames = modelFiles.slice(0, 2).map(f => f.split(/[/\\]/).pop()).join(', ');
+    systemDiagram += `    Data["<div class='arch-card arch-data'><div class='arch-title'>Database & Schema Layer</div><div class='arch-sub'>${modelFiles.length} models/schemas (${mNames})</div></div>"]\n`;
+  }
+  
+  if (workerFiles.length > 0) {
+    const wNames = workerFiles.slice(0, 2).map(f => f.split(/[/\\]/).pop()).join(', ');
+    systemDiagram += `    Workers["<div class='arch-card arch-worker'><div class='arch-title'>Background Workers</div><div class='arch-sub'>${workerFiles.length} tasks (${wNames})</div></div>"]\n`;
+  }
+
+  // Macro Flow Links
+  if (routerFiles.length > 0) {
+    systemDiagram += `    Client --> Gateway\n`;
+    if (serviceFiles.length > 0) systemDiagram += `    Gateway --> Core\n`;
+  } else if (serviceFiles.length > 0) {
+    systemDiagram += `    Client --> Core\n`;
+  }
+
+  if (serviceFiles.length > 0) {
+    if (modelFiles.length > 0) systemDiagram += `    Core --> Data\n`;
+    if (workerFiles.length > 0) systemDiagram += `    Core -.-> Workers\n`;
+  }
+  if (modelFiles.length > 0 && workerFiles.length > 0) {
+    systemDiagram += `    Data -.-> Workers\n`;
+  }
+
+  // 4. Dynamic Architecture Map (File Level Topology)
   const selRouters = routerFiles.slice(0, 4);
   const selServices = serviceFiles.slice(0, 4);
   const selModels = modelFiles.slice(0, 4);
   const selWorkers = workerFiles.slice(0, 2);
 
-  let systemDiagram = `flowchart LR\n`;
+  let archDiagram = `flowchart LR\n`;
+  
+  if (selRouters.length > 0) {
+    archDiagram += `  subgraph G_API ["🚪 API & Routing"]\n`;
+    selRouters.forEach((f, idx) => {
+      const id = sanitizeId(`r_${idx}_${f}`);
+      const base = cleanLabel(f.split(/[/\\]/).pop() || f);
+      archDiagram += `    ${id}["<div class='arch-card arch-gateway'><div class='arch-title'>${base}</div><div class='arch-sub'>${cleanLabel(f)}</div></div>"]\n`;
+    });
+    archDiagram += `  end\n\n`;
+  }
 
-  // Routers / API Cards
-  selRouters.forEach((f, idx) => {
-    const id = sanitizeId(`r_${idx}_${f}`);
-    const base = cleanLabel(f.split(/[/\\]/).pop() || f);
-    const syms = fileMap.get(f) || [];
-    const sub = syms[0]?.symbol ? `${cleanLabel(syms[0].symbol)} (${syms.length} symbols)` : 'Router / API';
-    systemDiagram += `    ${id}["<div class='arch-card arch-gateway'><div class='arch-title'>${base}</div><div class='arch-sub'>${sub}</div><div class='arch-file'>${cleanLabel(f)}:1</div></div>"]\n`;
-  });
+  if (selServices.length > 0) {
+    archDiagram += `  subgraph G_CORE ["⚙️ Core Services"]\n`;
+    selServices.forEach((f, idx) => {
+      const id = sanitizeId(`s_${idx}_${f}`);
+      const base = cleanLabel(f.split(/[/\\]/).pop() || f);
+      const activeClass = idx === 0 ? 'arch-core arch-active' : 'arch-core';
+      archDiagram += `    ${id}["<div class='arch-card ${activeClass}'><div class='arch-title'>${base}</div><div class='arch-sub'>${cleanLabel(f)}</div></div>"]\n`;
+    });
+    archDiagram += `  end\n\n`;
+  }
 
-  // Services Cards (Primary active node gets cyan glow)
-  selServices.forEach((f, idx) => {
-    const id = sanitizeId(`s_${idx}_${f}`);
-    const base = cleanLabel(f.split(/[/\\]/).pop() || f);
-    const syms = fileMap.get(f) || [];
-    const sub = syms[0]?.symbol ? `${cleanLabel(syms[0].symbol)} (${syms.length} symbols)` : 'Core Service';
-    const activeClass = idx === 0 ? 'arch-core arch-active' : 'arch-core';
-    systemDiagram += `    ${id}["<div class='arch-card ${activeClass}'><div class='arch-title'>${base}</div><div class='arch-sub'>${sub}</div><div class='arch-file'>${cleanLabel(f)}:1</div></div>"]\n`;
-  });
+  if (selModels.length > 0) {
+    archDiagram += `  subgraph G_DATA ["💾 Persistence & Models"]\n`;
+    selModels.forEach((f, idx) => {
+      const id = sanitizeId(`m_${idx}_${f}`);
+      const base = cleanLabel(f.split(/[/\\]/).pop() || f);
+      archDiagram += `    ${id}["<div class='arch-card arch-data'><div class='arch-title'>${base}</div><div class='arch-sub'>${cleanLabel(f)}</div></div>"]\n`;
+    });
+    archDiagram += `  end\n\n`;
+  }
 
-  // Models / DB Cards
-  selModels.forEach((f, idx) => {
-    const id = sanitizeId(`m_${idx}_${f}`);
-    const base = cleanLabel(f.split(/[/\\]/).pop() || f);
-    const syms = fileMap.get(f) || [];
-    const sub = syms[0]?.symbol ? `${cleanLabel(syms[0].symbol)} (${syms.length} symbols)` : 'Database Schema';
-    systemDiagram += `    ${id}["<div class='arch-card arch-data'><div class='arch-title'>${base}</div><div class='arch-sub'>${sub}</div><div class='arch-file'>${cleanLabel(f)}:1</div></div>"]\n`;
-  });
+  if (selWorkers.length > 0) {
+    archDiagram += `  subgraph G_WORKER ["⚡ Workers & Tasks"]\n`;
+    selWorkers.forEach((f, idx) => {
+      const id = sanitizeId(`w_${idx}_${f}`);
+      const base = cleanLabel(f.split(/[/\\]/).pop() || f);
+      archDiagram += `    ${id}["<div class='arch-card arch-worker'><div class='arch-title'>${base}</div><div class='arch-sub'>${cleanLabel(f)}</div></div>"]\n`;
+    });
+    archDiagram += `  end\n\n`;
+  }
 
-  // Workers Cards
-  selWorkers.forEach((f, idx) => {
-    const id = sanitizeId(`w_${idx}_${f}`);
-    const base = cleanLabel(f.split(/[/\\]/).pop() || f);
-    const syms = fileMap.get(f) || [];
-    const sub = syms[0]?.symbol ? `${cleanLabel(syms[0].symbol)} (${syms.length} symbols)` : 'Background Task';
-    systemDiagram += `    ${id}["<div class='arch-card arch-worker'><div class='arch-title'>${base}</div><div class='arch-sub'>${sub}</div><div class='arch-file'>${cleanLabel(f)}:1</div></div>"]\n`;
-  });
-
-  // Flow links between actual repo tiers
+  // Links for Architecture Map (File to File)
   selRouters.forEach((rf, rIdx) => {
     const rId = sanitizeId(`r_${rIdx}_${rf}`);
     selServices.forEach((sf, sIdx) => {
       const sId = sanitizeId(`s_${sIdx}_${sf}`);
       if (rIdx === sIdx || (rIdx === 0 && sIdx < 2)) {
-        systemDiagram += `    ${rId} --> ${sId}\n`;
+        archDiagram += `    ${rId} --> ${sId}\n`;
       }
     });
   });
@@ -198,13 +247,13 @@ export function generateArchitectureModel(symbols: ASTSymbol[]): {
     selModels.forEach((mf, mIdx) => {
       const mId = sanitizeId(`m_${mIdx}_${mf}`);
       if (sIdx === mIdx || (sIdx === 0 && mIdx < 2)) {
-        systemDiagram += `    ${sId} --> ${mId}\n`;
+        archDiagram += `    ${sId} --> ${mId}\n`;
       }
     });
     selWorkers.forEach((wf, wIdx) => {
       const wId = sanitizeId(`w_${wIdx}_${wf}`);
       if (sIdx === 0) {
-        systemDiagram += `    ${sId} -.-> ${wId}\n`;
+        archDiagram += `    ${sId} -.-> ${wId}\n`;
       }
     });
   });
@@ -214,38 +263,10 @@ export function generateArchitectureModel(symbols: ASTSymbol[]): {
     selWorkers.forEach((wf, wIdx) => {
       const wId = sanitizeId(`w_${wIdx}_${wf}`);
       if (mIdx === 0 && wIdx === 0) {
-        systemDiagram += `    ${mId} -.-> ${wId}\n`;
+        archDiagram += `    ${mId} -.-> ${wId}\n`;
       }
     });
   });
-
-  // 4. Dynamic Architecture Map
-  let archDiagram = `flowchart LR\n`;
-  archDiagram += `  subgraph G_SRC ["📂 Ingested Sources (${allFiles.length} files)"]\n`;
-  allFiles.slice(0, 5).forEach((f, idx) => {
-    const id = sanitizeId(`src_${idx}_${f}`);
-    const base = cleanLabel(f.split(/[/\\]/).pop() || f);
-    archDiagram += `    ${id}["<div class='arch-card arch-client'><div class='arch-title'>${base}</div><div class='arch-sub'>${cleanLabel(f)}</div></div>"]\n`;
-  });
-  archDiagram += `  end\n\n`;
-
-  archDiagram += `  subgraph G_CORE ["⚙️ Live Codebase Engine"]\n`;
-  const primaryService = selServices[0] || allFiles[0];
-  const primaryBase = cleanLabel(primaryService.split(/[/\\]/).pop() || 'Core');
-  archDiagram += `    C_ENG["<div class='arch-card arch-core arch-active'><div class='arch-title'>${primaryBase}</div><div class='arch-sub'>${symbols.length} AST Symbols Indexed</div><div class='arch-file'>${cleanLabel(primaryService)}</div></div>"]\n`;
-  archDiagram += `  end\n\n`;
-
-  archDiagram += `  subgraph G_DATA ["💾 Schemas & Storage"]\n`;
-  const primaryModel = selModels[0] || selServices[1] || allFiles[1] || allFiles[0];
-  const modelBase = cleanLabel(primaryModel.split(/[/\\]/).pop() || 'Schema');
-  archDiagram += `    C_DATA["<div class='arch-card arch-data'><div class='arch-title'>${modelBase}</div><div class='arch-sub'>Relational & Vector Index</div></div>"]\n`;
-  archDiagram += `  end\n\n`;
-
-  if (allFiles.length > 0) {
-    const firstSrc = sanitizeId(`src_0_${allFiles[0]}`);
-    archDiagram += `  ${firstSrc} --> C_ENG\n`;
-  }
-  archDiagram += `  C_ENG --> C_DATA\n`;
 
   // 5. Dynamic Sequence Diagram using real files from the active repository
   const r1 = selRouters[0] ? cleanLabel(selRouters[0].split(/[/\\]/).pop() || 'Router') : 'Router';
