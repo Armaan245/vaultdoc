@@ -286,7 +286,15 @@ export const ArchitectureStudio = ({
         </div>
 
         {/* Diagram SVG Output */}
-        {renderError ? (
+        {symbols.length === 0 ? (
+          <div className="p-8 max-w-md bg-[#091020]/90 backdrop-blur-md border border-vault-border/70 rounded-2xl text-center shadow-2xl flex flex-col items-center">
+            <Layers className="w-12 h-12 text-cyan-400 opacity-60 mb-3" />
+            <h3 className="text-sm font-bold text-white mb-1">No Codebase Repository Selected</h3>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Select a repository folder from the top bar or left sidebar to parse its live AST syntax tree and render its real system architecture, components, and data flow.
+            </p>
+          </div>
+        ) : renderError ? (
           <div className="p-6 bg-red-950/60 border border-red-500/40 rounded-xl text-center max-w-md">
             <h4 className="text-sm font-bold text-red-300 mb-2">Diagram Rendering Error</h4>
             <p className="text-xs text-red-200 font-mono mb-4">{renderError}</p>
@@ -330,38 +338,44 @@ export const ArchitectureStudio = ({
 
         {/* Node citation pills */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 custom-scrollbar">
-          {model.nodes.map((node) => {
-            const isSelected = selectedNode?.id === node.id;
-            return (
-              <button
-                key={node.id}
-                onClick={() => handleNodeClick(node)}
-                className={`flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${
-                  isSelected
-                    ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] font-semibold'
-                    : 'bg-vault-card/70 border-vault-border hover:border-slate-400 text-slate-300 hover:text-white'
-                }`}
-              >
-                <div className="p-1 rounded bg-slate-900 border border-slate-700">
-                  {node.type === 'database' ? (
-                    <Cpu className="w-3 h-3 text-emerald-400" />
-                  ) : node.type === 'security' ? (
-                    <ShieldCheck className="w-3 h-3 text-purple-400" />
-                  ) : (
-                    <FileCode className="w-3 h-3 text-cyan-400" />
-                  )}
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-medium leading-tight truncate max-w-[140px]">
-                    {node.label}
-                  </span>
-                  <span className="text-[9px] font-mono text-slate-400 truncate max-w-[140px]">
-                    {node.filePath ? node.filePath.split('/').pop() : 'AST Node'}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+          {model.nodes.length === 0 ? (
+            <div className="py-1 px-2 text-xs text-slate-500 font-mono">
+              No components loaded. Select a repository to populate live AST graph nodes.
+            </div>
+          ) : (
+            model.nodes.map((node) => {
+              const isSelected = selectedNode?.id === node.id;
+              return (
+                <button
+                  key={node.id}
+                  onClick={() => handleNodeClick(node)}
+                  className={`flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${
+                    isSelected
+                      ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] font-semibold'
+                      : 'bg-vault-card/70 border-vault-border hover:border-slate-400 text-slate-300 hover:text-white'
+                  }`}
+                >
+                  <div className="p-1 rounded bg-slate-900 border border-slate-700">
+                    {node.type === 'database' ? (
+                      <Cpu className="w-3 h-3 text-emerald-400" />
+                    ) : node.type === 'security' ? (
+                      <ShieldCheck className="w-3 h-3 text-purple-400" />
+                    ) : (
+                      <FileCode className="w-3 h-3 text-cyan-400" />
+                    )}
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[11px] font-medium leading-tight truncate max-w-[140px]">
+                      {node.label}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400 truncate max-w-[140px]">
+                      {node.filePath ? node.filePath.split('/').pop() : 'AST Node'}
+                    </span>
+                  </div>
+                </button>
+              );
+            })
+          )}
         </div>
       </div>
     </div>
