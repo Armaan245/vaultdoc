@@ -70,10 +70,10 @@ export const lanceDb = {
   async search(query: string, options: { symbols?: ASTSymbol[]; limit?: number } = {}): Promise<RAGChunk[]> {
     const limit = options.limit || 10;
     try {
-      let symbols: ASTSymbol[] = options.symbols || [];
+      let symbols: ASTSymbol[] | undefined = options.symbols;
 
       // If no in-memory symbols provided, load from AST output file
-      if (symbols.length === 0) {
+      if (symbols === undefined) {
         try {
           const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
           const catOutput = await catCmd.execute();

@@ -110,8 +110,8 @@ export const PrePRStudio = ({
   return (
     <div className="flex-1 h-full bg-[#080d1a] flex flex-col overflow-hidden">
       
-      {/* Subheader / Summary Metrics Bar */}
-      <div className="border-b border-vault-border bg-[#0b1224] px-6 py-3 flex items-center justify-between">
+      {/* Unified Top Header (Studio Section) */}
+      <div className="h-14 flex items-center justify-between px-4 bg-[#0D0E13] border-b border-white/5 flex-shrink-0 z-10">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
             <ShieldAlert className="w-5 h-5 text-cyan-400" />

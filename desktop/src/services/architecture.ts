@@ -231,29 +231,55 @@ export function generateArchitectureModel(symbols: ASTSymbol[]): {
     archDiagram += `  end\n\n`;
   }
 
-  // Links for Architecture Map (File to File)
+  // Helper to detect genuine code-level dependencies
+  const getImports = (file: string) => {
+    const syms = fileMap.get(file) || [];
+    const code = syms.map(s => s.code || '').join('\n');
+    const imports: string[] = [];
+    const matches = code.matchAll(/(?:import|require)\s*\(?.*(?:from\s+)?['"]([^'"]+)['"]/g);
+    for (const match of matches) {
+      imports.push(match[1]);
+    }
+    return imports;
+  };
+
+  const hasConnection = (sourceFile: string, targetFile: string) => {
+    const imports = getImports(sourceFile);
+    const targetBase = targetFile.split(/[/\\]/).pop()?.replace(/\.[^/.]+$/, '') || '';
+    if (!targetBase || targetBase.length < 3) return false;
+    return imports.some(imp => imp.includes(targetBase));
+  };
+
+  // Links for Architecture Map (File to File) grounded in real imports
   selRouters.forEach((rf, rIdx) => {
     const rId = sanitizeId(`r_${rIdx}_${rf}`);
+    let connected = false;
     selServices.forEach((sf, sIdx) => {
       const sId = sanitizeId(`s_${sIdx}_${sf}`);
-      if (rIdx === sIdx || (rIdx === 0 && sIdx < 2)) {
+      if (hasConnection(rf, sf) || (!connected && rIdx === sIdx)) { // fallback to ordinal if no explicit imports
         archDiagram += `    ${rId} --> ${sId}\n`;
+        connected = true;
       }
     });
   });
 
   selServices.forEach((sf, sIdx) => {
     const sId = sanitizeId(`s_${sIdx}_${sf}`);
+    let connectedToModel = false;
     selModels.forEach((mf, mIdx) => {
       const mId = sanitizeId(`m_${mIdx}_${mf}`);
-      if (sIdx === mIdx || (sIdx === 0 && mIdx < 2)) {
+      if (hasConnection(sf, mf) || (!connectedToModel && sIdx === mIdx)) {
         archDiagram += `    ${sId} --> ${mId}\n`;
+        connectedToModel = true;
       }
     });
+    
+    let connectedToWorker = false;
     selWorkers.forEach((wf, wIdx) => {
       const wId = sanitizeId(`w_${wIdx}_${wf}`);
-      if (sIdx === 0) {
+      if (hasConnection(sf, wf) || (!connectedToWorker && sIdx === 0 && wIdx === 0)) {
         archDiagram += `    ${sId} -.-> ${wId}\n`;
+        connectedToWorker = true;
       }
     });
   });
@@ -262,7 +288,7 @@ export function generateArchitectureModel(symbols: ASTSymbol[]): {
     const mId = sanitizeId(`m_${mIdx}_${mf}`);
     selWorkers.forEach((wf, wIdx) => {
       const wId = sanitizeId(`w_${wIdx}_${wf}`);
-      if (mIdx === 0 && wIdx === 0) {
+      if (hasConnection(mf, wf) || (mIdx === 0 && wIdx === 0)) {
         archDiagram += `    ${mId} -.-> ${wId}\n`;
       }
     });

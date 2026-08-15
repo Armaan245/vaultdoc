@@ -1,13 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --color-vault-base: #0B121E;
-  --color-vault-panel: #0F172A;
-  --color-vault-card: #1E293B;
-  --color-vault-border: #334155;
-  --color-vault-borderLight: #1E293B;
-  --color-vault-accent: #06B6D4;
-  --color-vault-security: #10B981;
+  --color-vault-base: #0B0C10;
+  --color-vault-panel: #11131A;
+  --color-vault-card: #161922;
+  --color-vault-border: #232736;
+  --color-vault-borderLight: #1E2230;
+  --color-vault-accent: #38BDF8;
+  --color-vault-security: #34D399;
   --color-vault-securityDark: #064E3B;
   --color-vault-textPrimary: #F8FAFC;
   --color-vault-textBody: #94A3B8;
@@ -18,7 +18,7 @@
 
 @layer base {
   body {
-    @apply bg-vault-base text-vault-textBody font-sans m-0 p-0 overflow-hidden select-none;
+    @apply bg-[#0B0C10] text-vault-textBody font-sans m-0 p-0 overflow-hidden select-none;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -27,15 +27,69 @@
 }
 
 :root {
-  --bg-primary: #0b121e;
-  --bg-secondary: #0f172a;
-  --bg-card: #1e293b;
-  --border-color: #334155;
+  --bg-primary: #0b0c10;
+  --bg-secondary: #11131a;
+  --bg-card: #161922;
+  --border-color: #232736;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --accent-pill-bg: #06b6d4;
-  --accent-pill-text: #ffffff;
+  --accent-pill-bg: #38bdf8;
+  --accent-pill-text: #000000;
 }
+
+/* Subtle dot-grid backdrop */
+.dot-matrix-bg {
+  background-color: #0B0C10;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Glass card styling */
+.glass-card {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Modern Sliding Toggle Switch */
+.toggle-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 36px;
+  height: 20px;
+  border-radius: 9999px;
+  background-color: rgba(255, 255, 255, 0.12);
+  position: relative;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.toggle-checkbox:hover {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.toggle-checkbox:checked {
+  background-color: #3b82f6;
+}
+
+.toggle-checkbox::before {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background-color: #ffffff;
+  transition: transform 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.toggle-checkbox:checked::before {
+  transform: translateX(16px);
+}
+
 
 /* --- High-Tech Mermaid Architecture Card Styling (Matching Reference) --- */
 .mermaid {
@@ -432,3 +486,267 @@
     display: none !important;
   }
 }
+
+/* ==========================================================================
+   Comprehensive Light Mode Styling System (Matching Codex Light UI)
+   ========================================================================== */
+
+html.light,
+html.light body {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+}
+
+html.light header,
+html.light .titlebar-container {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.05) !important;
+  color: #18181b !important;
+}
+
+html.light aside,
+html.light .sidebar-container {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.05) !important;
+  color: #18181b !important;
+}
+
+html.light main {
+  background-color: #ffffff !important;
+  color: #18181b !important;
+}
+
+/* Light mode backgrounds for specific dark tailwind classes */
+html.light .bg-\[\#131316\],
+html.light .bg-\[\#111114\],
+html.light .bg-\[\#0B0C10\],
+html.light .bg-\[\#0b0c10\],
+html.light .bg-\[\#1a1a1e\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#141416\],
+html.light .bg-\[\#161619\] {
+  background-color: #ffffff !important;
+}
+
+html.light .bg-\[\#18181c\],
+html.light .bg-\[\#1c1c20\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+}
+
+html.light .bg-\[\#222227\],
+html.light .bg-\[\#242428\],
+html.light .bg-\[\#212124\] {
+  background-color: #f0f0f4 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #18181b !important;
+}
+
+/* Light mode text colors */
+html.light [class*="text-white"] {
+  color: #18181b !important;
+}
+
+html.light .text-slate-200,
+html.light .text-slate-300 {
+  color: #27272a !important;
+}
+
+html.light .text-slate-400 {
+  color: #52525b !important;
+}
+
+html.light .text-slate-500 {
+  color: #71717a !important;
+}
+
+html.light .text-slate-600 {
+  color: #a1a1aa !important;
+}
+
+/* ChatStudio Hero and Project Tab */
+html.light .bg-white\/\[0\.03\] {
+  background-color: #f0f0f4 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #52525b !important;
+}
+
+html.light .bg-\[\#1c1c1f\] {
+  background-color: #f0f0f4 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #52525b !important;
+}
+
+html.light .bg-\[\#1c1c1f\] span {
+  color: #52525b !important;
+}
+
+html.light .bg-\[\#1c1c1f\]:hover span {
+  color: #18181b !important;
+}
+
+/* ChatStudio 1x4 Action Cards */
+html.light .bg-\[\#1c1c20\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
+}
+
+html.light .bg-\[\#1c1c20\]:hover {
+  background-color: #f8f9fa !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+}
+
+html.light .bg-\[\#1c1c20\] p {
+  color: #18181b !important;
+}
+
+/* ChatStudio Bottom Floating Dock */
+html.light .bg-\[\#242428\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06) !important;
+}
+
+html.light .bg-\[\#242428\] textarea {
+  color: #18181b !important;
+}
+
+html.light .bg-\[\#242428\] textarea::placeholder {
+  color: #8e8e93 !important;
+}
+
+html.light .text-\[\#8e8e93\] {
+  color: #52525b !important;
+}
+
+html.light .text-\[\#8e8e93\]:hover,
+html.light .text-\[\#8e8e93\] button:hover {
+  color: #18181b !important;
+}
+
+/* Light mode borders */
+html.light [class*="border-white"] {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+html.light [class*="divide-white"] > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Light mode hover states */
+html.light .hover\:bg-white\/5:hover,
+html.light .hover\:bg-white\/10:hover,
+html.light .bg-white\/5,
+html.light .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+/* Get Plus Badge in Light Mode */
+html.light .bg-\[\#23153c\] {
+  background-color: #f3e8ff !important;
+  border-color: #d8b4fe !important;
+  color: #7e22ce !important;
+}
+
+html.light .bg-\[\#23153c\] span {
+  color: #7e22ce !important;
+}
+
+html.light .bg-\[\#23153c\] svg {
+  color: #7e22ce !important;
+}
+
+/* Sidebar Active Nav & Projects */
+html.light aside .bg-white\/10 {
+  background-color: rgba(0, 0, 0, 0.08) !important;
+  color: #18181b !important;
+}
+
+html.light aside .bg-white\/5 {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+  color: #18181b !important;
+}
+
+html.light aside .font-mono {
+  color: #18181b !important;
+}
+
+html.light aside button:hover {
+  background-color: rgba(0, 0, 0, 0.04) !important;
+  color: #18181b !important;
+}
+
+html.light aside .border-t {
+  border-color: rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Popover Menus (What's new & Profile menu) */
+html.light .bg-\[\#161619\],
+html.light .bg-\[\#1e1e24\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12) !important;
+  color: #18181b !important;
+}
+
+html.light .bg-\[\#161619\] p,
+html.light .bg-\[\#161619\] span,
+html.light .bg-\[\#1e1e24\] span {
+  color: #18181b !important;
+}
+
+html.light .bg-\[\#161619\] .text-slate-500,
+html.light .bg-\[\#1e1e24\] .text-slate-500 {
+  color: #71717a !important;
+}
+
+html.light .bg-\[\#161619\] .text-slate-400,
+html.light .bg-\[\#1e1e24\] .text-slate-400 {
+  color: #52525b !important;
+}
+
+/* Modals in Light Mode */
+html.light .bg-\[\#1c1c1f\],
+html.light .bg-\[\#1a1a1e\],
+html.light .bg-\[\#1e1e22\] {
+  background-color: #ffffff !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+  color: #18181b !important;
+}
+
+/* Light mode Inputs & Selects */
+html.light input,
+html.light select,
+html.light textarea {
+  color: #18181b !important;
+}
+
+html.light input::placeholder,
+html.light textarea::placeholder {
+  color: #a1a1aa !important;
+}
+
+/* Light mode diff blocks */
+html.light .bg-rose-950\/40 {
+  background-color: #fee2e2 !important;
+  color: #991b1b !important;
+}
+
+html.light .bg-rose-950\/40 span {
+  color: #991b1b !important;
+}
+
+html.light .bg-emerald-950\/40 {
+  background-color: #dcfce7 !important;
+  color: #166534 !important;
+}
+
+html.light .bg-emerald-950\/40 span {
+  color: #166534 !important;
+}
+

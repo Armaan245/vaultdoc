@@ -23,10 +23,15 @@ export const TestSuiteStudio = ({ symbols }: TestSuiteStudioProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const executableSymbols = symbols.filter(s => {
+    const ext = s.filePath?.split('.').pop()?.toLowerCase();
+    return ext && !['md', 'json', 'sql', 'css', 'txt'].includes(ext);
+  });
+
   useEffect(() => {
-    if (symbols.length > 0) {
-      if (!selectedSymbol || !symbols.find(s => s.symbol === selectedSymbol.symbol)) {
-        setSelectedSymbol(symbols[0]);
+    if (executableSymbols.length > 0) {
+      if (!selectedSymbol || !executableSymbols.find(s => s.symbol === selectedSymbol.symbol)) {
+        setSelectedSymbol(executableSymbols[0]);
       }
     } else {
       setSelectedSymbol(null);
@@ -78,6 +83,9 @@ Requirements:
         ? (baseUrl.endsWith('/v1') ? `${baseUrl}/chat/completions` : `${baseUrl}/v1/chat/completions`)
         : `${baseUrl}/api/generate`;
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
       const res = await fetch(endpointUrl, {
         method: 'POST',
         headers,
@@ -85,8 +93,10 @@ Requirements:
           isOpenAIFormat
             ? { model: config.model, messages: [{ role: 'user', content: prompt }], stream: false }
             : { model: config.model, prompt, stream: false }
-        )
+        ),
+        signal: controller.signal
       });
+      clearTimeout(timeoutId);
 
       if (res.ok) {
         const data = await res.json();
@@ -105,8 +115,11 @@ Requirements:
           return;
         }
       }
-    } catch (e) {
-      // Fallback to deterministic AST framework template
+    } catch (err: any) {
+      // Fallback to deterministic AST framework template with clear error banner
+      setTestCode(`// ⚠️ Offline Assistant Notice: Unable to connect to local model (${err.message}).\n// Verify that Ollama or LM Studio is running locally.\n\n` + generateLocalFallbackTest(symName, filePath, fw, symCode));
+      setIsGenerating(false);
+      return;
     }
 
     // Deterministic fallback using actual symbol code & path
@@ -213,7 +226,8 @@ describe('${symName} (${filePath})', () => {
   return (
     <div className="flex-1 h-full bg-[#080d1a] flex flex-col overflow-hidden">
       {/* Top Header */}
-      <div className="border-b border-vault-border bg-[#0b1224] px-6 py-3 flex items-center justify-between">
+      {/* Unified Top Header (Studio Section) */}
+      <div className="h-14 flex items-center justify-between px-4 bg-[#0D0E13] border-b border-white/5 flex-shrink-0">
         <div className="flex items-center gap-2">
           <FlaskConical className="w-5 h-5 text-cyan-400" />
           <div>
@@ -250,16 +264,16 @@ describe('${symName} (${filePath})', () => {
         {/* Left Column: Target AST Symbol Selection */}
         <div className="w-[320px] flex-shrink-0 border-r border-vault-border flex flex-col bg-[#070b16] p-4">
           <span className="text-xs font-bold text-slate-200 mb-3">
-            Select Target AST Symbol ({symbols.length})
+            Select Target AST Symbol ({executableSymbols.length})
           </span>
 
           <div className="flex-1 overflow-y-auto space-y-1.5 custom-scrollbar pr-1">
-            {symbols.length === 0 ? (
+            {executableSymbols.length === 0 ? (
               <div className="p-6 text-center text-xs text-slate-500">
                 No AST symbols loaded.<br />Open a repository folder to view codebase symbols.
               </div>
             ) : (
-              symbols.map((s, idx) => {
+              executableSymbols.map((s, idx) => {
                 const isSelected = selectedSymbol?.symbol === s.symbol && selectedSymbol?.filePath === s.filePath;
                 return (
                   <button

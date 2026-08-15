@@ -79,6 +79,10 @@ export const ArchitectureStudio = ({
   useEffect(() => {
     let isMounted = true;
     const renderDiagram = async () => {
+      if (!currentDiagram || currentDiagram.trim() === '') {
+        setSvgContent('');
+        return;
+      }
       try {
         setRenderError(null);
         const uniqueId = `mermaid-svg-${Date.now()}`;
@@ -167,7 +171,8 @@ export const ArchitectureStudio = ({
     <div className="flex-1 h-full bg-[#070c18] flex flex-col relative overflow-hidden select-none">
       
       {/* Top Header Controls Bar (Tabs Left, Exports Right - Matching Reference Image 1) */}
-      <div className="px-6 py-3 border-b border-vault-border/40 bg-[#080d1b] flex items-center justify-between z-20 print:hidden">
+      {/* Unified Top Header (Studio Section) */}
+      <div className="h-14 flex items-center justify-between px-4 bg-[#0D0E13] border-b border-white/5 flex-shrink-0 z-20 print:hidden">
         
         {/* Left View Switcher Tabs */}
         <div className="flex items-center gap-1.5 bg-[#0b1325] p-1 rounded-xl border border-vault-border/60 shadow-inner">
