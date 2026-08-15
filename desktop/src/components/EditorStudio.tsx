@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Edit3, Eye, Download, Copy, FileText, Check } from 'lucide-react';
+import { useRef, useEffect } from 'react';
+import { Copy } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { applyMarkdownFormatting, detectActiveFormats } from '../services/markdownEditor';
@@ -7,13 +7,18 @@ import { applyMarkdownFormatting, detectActiveFormats } from '../services/markdo
 interface EditorStudioProps {
   markdown: string;
   isLoading: boolean;
+  viewMode?: 'preview' | 'edit';
   onMarkdownChange?: (newMarkdown: string) => void;
   onActiveFormatsChange?: (formats: Record<string, boolean>) => void;
 }
 
-const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsChange }: EditorStudioProps) => {
-  const [copied, setCopied] = useState(false);
-  const [viewMode, setViewMode] = useState<'preview' | 'edit'>('preview');
+export const EditorStudio = ({ 
+  markdown, 
+  isLoading, 
+  viewMode = 'preview', 
+  onMarkdownChange, 
+  onActiveFormatsChange 
+}: EditorStudioProps) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSelectionRef = useRef<{ start: number; end: number }>({ start: 0, end: 0 });
 
@@ -22,9 +27,6 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
       const customEvent = e as CustomEvent<{ action: string }>;
       const action = customEvent.detail?.action;
       if (!action) return;
-
-      // Automatically switch to edit mode when formatting toolbar is clicked
-      setViewMode('edit');
 
       const textarea = textareaRef.current;
       let start = markdown.length;
@@ -72,7 +74,7 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
   const docTitle = titleMatch ? titleMatch[1].replace(/[*_~`]/g, '').trim() : 'Codebase Architecture Specification';
 
   return (
-    <div className="flex-1 h-full bg-vault-base flex flex-col relative">
+    <div className="flex-1 h-full bg-vault-base flex flex-col relative overflow-hidden">
       {/* --- Print Only: Fixed Header (Appears on Page 2+) --- */}
       <div className="hidden print:flex fixed top-0 left-0 w-full justify-between items-center pb-2 border-b-2 border-[#0284c7] z-10 text-[10px] font-sans uppercase tracking-widest bg-white print-fixed-header">
         <div></div>
@@ -128,12 +130,12 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-[40px] pt-[48px] pb-24 max-w-[840px] mx-auto w-full custom-scrollbar markdown-container">
+      <div className="flex-1 overflow-y-auto px-[40px] pt-[36px] pb-16 max-w-[860px] mx-auto w-full custom-scrollbar markdown-container">
         
         {!markdown && !isLoading && (
           <div className="flex flex-col items-center justify-center h-full text-vault-textBody opacity-60">
              <h1 className="text-2xl font-bold mb-4 text-vault-textPrimary">No Document Generated</h1>
-             <p className="text-sm">Select a preset from the left to begin RAG generation or click formatting buttons above.</p>
+             <p className="text-sm">Select a preset or ask the codebase assistant to begin AST generation.</p>
           </div>
         )}
 
@@ -147,7 +149,7 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
               onClick={handleSelectTextarea}
               onKeyUp={handleSelectTextarea}
               placeholder="Type markdown content here or use the toolbar buttons..."
-              className="w-full h-full min-h-[500px] bg-vault-card border border-vault-border rounded-lg p-6 font-mono text-sm text-vault-textPrimary outline-none focus:border-vault-accent transition-colors custom-scrollbar resize-none leading-relaxed"
+              className="w-full h-full min-h-[550px] bg-vault-card border border-vault-border rounded-lg p-6 font-mono text-sm text-vault-textPrimary outline-none focus:border-vault-accent transition-colors custom-scrollbar resize-none leading-relaxed"
             />
           </div>
         ) : (
@@ -176,9 +178,8 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
                   const lang = match ? match[1] : 'text';
                   const codeStr = String(children).replace(/\n$/, '');
                   
-                  // Super fast regex syntax highlighting for keywords, strings, and types (with html leak fix)
                   let highlightedCode = codeStr
-                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;') // Escape HTML first
+                    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
                     .replace(/(["'`])(.*?)\1/g, '___STR_START___$1$2$1___STR_END___')
                     .replace(/\b(const|let|var|function|return|export|import|from|class|if|else|for|while|await|async|type|interface|public|private)\b/g, '___KW_START___$1___KW_END___')
                     .replace(/\b([A-Z][a-zA-Z0-9_]*)\b/g, '___TYP_START___$1___TYP_END___')
@@ -219,65 +220,9 @@ const EditorStudio = ({ markdown, isLoading, onMarkdownChange, onActiveFormatsCh
         {isLoading && (
           <div className="flex items-center gap-2 mt-4 text-vault-accent opacity-80">
             <div className="w-2 h-4 bg-vault-accent animate-pulse rounded-sm"></div>
-            <span className="text-sm">Generating...</span>
+            <span className="text-sm">Generating AST Spec...</span>
           </div>
         )}
-      </div>
-
-      {/* Dedicated Bottom Status Bar & Action Toolbar Container */}
-      <div className="sticky bottom-0 z-20 w-full border-t border-vault-border bg-vault-panel/90 backdrop-blur-md p-3 px-6 flex items-center justify-between print:hidden export-actions-bar">
-        <div className="text-[11px] font-mono text-vault-textBody opacity-70">
-          {markdown ? `${markdown.split(/\s+/).filter(Boolean).length} words • ${markdown.length} chars` : 'Ready'}
-        </div>
-        <div className="flex items-center gap-2">
-          <button 
-            onClick={() => setViewMode(prev => prev === 'preview' ? 'edit' : 'preview')}
-            className="flex items-center gap-2 bg-vault-base hover:bg-vault-card active:scale-95 border border-vault-border px-3 py-1.5 rounded text-xs text-vault-textBody hover:text-vault-textPrimary transition-all duration-150"
-            title={viewMode === 'preview' ? "Switch to Raw Editor" : "Switch to Live Preview"}
-          >
-            {viewMode === 'preview' ? <Edit3 className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-            {viewMode === 'preview' ? 'Edit Source' : 'Live Preview'}
-          </button>
-          <button 
-            onClick={() => {
-              if (!markdown) return;
-              const blob = new Blob([markdown], { type: 'text/markdown' });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = 'vaultdoc-export.md';
-              document.body.appendChild(a);
-              a.click();
-              document.body.removeChild(a);
-              URL.revokeObjectURL(url);
-            }}
-            className="flex items-center gap-2 bg-vault-base hover:bg-vault-card active:scale-95 border border-vault-border px-3 py-1.5 rounded text-xs text-vault-textBody hover:text-vault-textPrimary transition-all duration-150"
-          >
-            <Download className="w-3.5 h-3.5" /> Export .MD
-          </button>
-          <button 
-            onClick={() => window.print()}
-            className="flex items-center gap-2 bg-vault-base hover:bg-vault-card active:scale-95 border border-vault-border px-3 py-1.5 rounded text-xs text-vault-textBody hover:text-vault-textPrimary transition-all duration-150"
-          >
-            <FileText className="w-3.5 h-3.5" /> Export .PDF
-          </button>
-          <button 
-            onClick={() => {
-              if (!markdown) return;
-              navigator.clipboard.writeText(markdown);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-            className={`flex items-center gap-2 border border-vault-border px-3 py-1.5 rounded text-xs transition-all duration-150 active:scale-95 ${
-              copied 
-                ? 'bg-vault-security/20 text-vault-security border-vault-security/50' 
-                : 'bg-vault-base hover:bg-vault-card text-vault-textBody hover:text-vault-textPrimary'
-            }`}
-          >
-            {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-        </div>
       </div>
     </div>
   );

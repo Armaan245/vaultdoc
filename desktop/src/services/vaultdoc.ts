@@ -67,19 +67,28 @@ export const lanceDb = {
   /**
    * Dynamic LanceDB similarity query across the full repository index.
    */
-  async search(query: string, options: { limit?: number } = { limit: 10 }): Promise<RAGChunk[]> {
+  async search(query: string, options: { symbols?: ASTSymbol[]; limit?: number } = {}): Promise<RAGChunk[]> {
     const limit = options.limit || 10;
     try {
-      // Load symbols from AST output file
-      const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
-      const catOutput = await catCmd.execute();
-      if (catOutput.code !== 0) return [];
-      
-      const symbols: ASTSymbol[] = JSON.parse(catOutput.stdout);
+      let symbols: ASTSymbol[] = options.symbols || [];
+
+      // If no in-memory symbols provided, load from AST output file
+      if (symbols.length === 0) {
+        try {
+          const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
+          const catOutput = await catCmd.execute();
+          if (catOutput.code === 0 && catOutput.stdout) {
+            symbols = JSON.parse(catOutput.stdout);
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+
       if (!symbols || symbols.length === 0) return [];
 
       const qLower = query.toLowerCase().trim();
-      const qTokens = qLower.split(/\s+/).filter(Boolean);
+      const qTokens = qLower.split(/[\s,./\\_-]+/).filter(tok => tok.length > 1);
 
       // Score symbols based on relevance across filePath, symbol name, type, and code content
       const scored = symbols.map(s => {
@@ -90,23 +99,26 @@ export const lanceDb = {
 
         let score = 0;
 
-        // Substring match bonuses
-        if (symLower === qLower) score += 50;
-        else if (symLower.includes(qLower)) score += 30;
+        // Exact & Substring match bonuses
+        if (symLower === qLower) score += 60;
+        else if (symLower.includes(qLower) || qLower.includes(symLower)) score += 35;
 
-        if (fileLower.includes(qLower)) score += 20;
+        if (fileLower.includes(qLower) || qLower.includes(fileLower.split(/[/\\\\]/).pop() || '')) score += 30;
         if (typeLower.includes(qLower)) score += 15;
-        if (codeLower.includes(qLower)) score += 10;
+        if (codeLower.includes(qLower)) score += 12;
 
         // Token match scoring
         for (const tok of qTokens) {
-          if (symLower.includes(tok)) score += 10;
-          if (fileLower.includes(tok)) score += 5;
+          if (symLower === tok) score += 20;
+          else if (symLower.includes(tok)) score += 10;
+
+          if (fileLower.includes(tok)) score += 8;
+          if (typeLower.includes(tok)) score += 4;
           if (codeLower.includes(tok)) score += 2;
         }
 
         // Distance normalized between 0.02 and 0.45
-        const distance = Math.max(0.02, Math.min(0.45, Number((1 - (score / 100)).toFixed(2))));
+        const distance = Math.max(0.02, Math.min(0.45, Number((1 - Math.min(score, 100) / 100).toFixed(2))));
 
         return {
           chunk: {
@@ -255,13 +267,11 @@ export async function generateDocumentation(
     const config = getStoredProviderConfig();
     const baseUrl = config.baseUrl.replace(/\/$/, '');
 
-    // 1. Read AST
-    const catCmd = Command.create('node', ['-e', `console.log(require('fs').readFileSync('vaultdoc-ast.json', 'utf8'))`]);
-    const catOutput = await catCmd.execute();
-    if (catOutput.code !== 0) throw new Error('Failed to read AST file for RAG.');
-    const symbols: ASTSymbol[] = JSON.parse(catOutput.stdout);
+    // 1. Query LanceDB for the most relevant AST chunks for this prompt
+    const chunks = await lanceDb.search(prompt, { limit: 8 });
+    onChunksRetrieved(chunks);
 
-    // 2. Fetch Embeddings (if endpoint available)
+    // 2. Fetch Embeddings if endpoint available
     try {
       const embedUrl = baseUrl.endsWith('/v1') ? `${baseUrl}/embeddings` : `${baseUrl}/api/embeddings`;
       await fetch(embedUrl, {
@@ -273,22 +283,15 @@ export async function generateDocumentation(
       // Optional fallback
     }
 
-    // 3. Fake RAG matching for top AST symbols
-    const sorted = [...symbols].sort((a, b) => b.code.length - a.code.length).slice(0, 5);
-    const chunks: RAGChunk[] = sorted.map(s => ({
-      file: s.filePath,
-      symbol: s.symbol,
-      type: s.type,
-      code: s.code,
-      distance: 0.1
-    }));
-    onChunksRetrieved(chunks);
-
-    // 4. Construct context
-    let contextStr = 'Use the following code context to answer the prompt:\n\n';
-    chunks.forEach(c => {
-      contextStr += `File: ${c.file}\nSymbol: ${c.symbol}\n\`\`\`\n${c.code}\n\`\`\`\n\n`;
-    });
+    // 3. Construct context
+    let contextStr = 'Use the following actual codebase context from the repository index to satisfy the prompt:\n\n';
+    if (chunks.length > 0) {
+      chunks.forEach(c => {
+        contextStr += `File: ${c.file}\nSymbol: ${c.symbol} (${c.type})\n\`\`\`\n${c.code}\n\`\`\`\n\n`;
+      });
+    } else {
+      contextStr += 'No specific AST chunks matched query keywords. Provide a complete architectural overview for the repository.\n\n';
+    }
     
     const finalPrompt = `${contextStr}\nPrompt: ${prompt}
 
@@ -298,24 +301,21 @@ Format all generated documentation strictly in the following Markdown layout:
 # {Module Name} — Architecture Specification
 
 ## Overview
-Provide a concise, high-level summary paragraph highlighting core concepts in inline code backticks like \`lexer\` and \`AST\`.
+Provide a concise, high-level summary paragraph highlighting core concepts in inline code backticks like \`router\`, \`model\`, and \`service\`.
 **CRITICAL**: You MUST wrap all technical terms, database tables, and AST types in backticks (\`term\`) within paragraph text so they automatically render as cyan pill tags.
-Do NOT list every single database column line-by-line as bulleted lists. Instead, provide high-level architectural overviews, group primary models into Core Components, and represent schemas using formatted TypeScript/SQL code blocks.
+Do NOT list every single database column line-by-line as bulleted lists. Instead, provide high-level architectural overviews, group primary models into Core Components, and represent schemas using formatted TypeScript/Python/SQL code blocks.
 
 ## Core Components
 
 ### {Component Name 1}
-Provide a detailed explanation. Highlight key categories or types using inline backticks (e.g. \`Identifier\`, \`Keyword\`, \`Literal\`, \`Operator\`, \`Trivia\`).
+Provide a detailed explanation. Highlight key categories or types using inline backticks.
 
 Include a concrete, syntax-valid code snippet inside triple backticks with language annotation (\`typescript\`, \`python\`, \`sql\`, etc.):
 \`\`\`typescript
 // Include real function signature or interface from repository AST
-export function exampleFunction(param: string): Result {
-  return process(param);
-}
 \`\`\``;
 
-    // 5. Dynamic Client Streaming Request
+    // 4. Dynamic Client Streaming Request
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (config.apiKey && config.apiKey.trim().length > 0) {
       headers['Authorization'] = `Bearer ${config.apiKey.trim()}`;
@@ -332,7 +332,7 @@ export function exampleFunction(param: string): Result {
       ? JSON.stringify({
           model: config.model,
           messages: [
-            { role: 'system', content: 'You are VaultDoc AI technical specification generator.' },
+            { role: 'system', content: 'You are VaultDoc AI technical specification generator. Ground all responses strictly in the provided repository AST context.' },
             { role: 'user', content: finalPrompt }
           ],
           stream: true
