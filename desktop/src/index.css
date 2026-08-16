@@ -645,19 +645,15 @@ html.light .bg-white\/10 {
   background-color: rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Get Plus Badge in Light Mode */
-html.light .bg-\[\#23153c\] {
-  background-color: #f4ebff !important;
-  border-color: transparent !important;
-  color: #9333ea !important;
+/* Air-Gapped Mode Tag in Light Mode */
+html.light .bg-emerald-950\/40 {
+  background-color: #ecfdf5 !important;
+  border-color: #a7f3d0 !important;
+  color: #059669 !important;
 }
 
-html.light .bg-\[\#23153c\] span {
-  color: #9333ea !important;
-}
-
-html.light .bg-\[\#23153c\] svg {
-  color: #9333ea !important;
+html.light .bg-emerald-950\/40 span {
+  color: #059669 !important;
 }
 
 /* Sidebar Active Nav & Projects */

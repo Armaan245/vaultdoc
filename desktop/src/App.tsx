@@ -25,6 +25,7 @@ import Titlebar from './components/Titlebar';
 function App() {
   // Activity Workspace State - Default to 'chat' (Center Intent Command Center)
   const [activeTab, setActiveTab] = useState<ActivityTab>('chat');
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isFileTreeOpen, setIsFileTreeOpen] = useState(false);
   const [isCustomDocModalOpen, setIsCustomDocModalOpen] = useState(false);
@@ -45,6 +46,7 @@ function App() {
   const setEngineStatus = (_msg: string) => {};
   const [error, setError] = useState<string | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialCategory, setSettingsInitialCategory] = useState<string>('general');
 
   // Focus Citation Bridge from Architecture / Audit / Chat to RAG Inspector
   const [focusedCitation, setFocusedCitation] = useState<{ file?: string; symbol?: string } | null>(null);
@@ -299,14 +301,23 @@ function App() {
             onTabChange={setActiveTab}
             activeProject={activeProject}
             projects={projects}
+            activeSessionId={activeSessionId}
+            onSelectSession={(sessId) => {
+              setActiveSessionId(sessId);
+              setActiveTab('chat');
+            }}
             onSelectProject={handleSelectWorkspaceProject}
             onOpenFolder={() => setIsCreateProjectModalOpen(true)}
-            onOpenSettings={() => setIsSettingsOpen(true)}
-            onSelectRecent={(recentQuery) => {
+            onOpenSettings={(cat) => {
+              setSettingsInitialCategory(cat || 'general');
+              setIsSettingsOpen(true);
+            }}
+            onSelectRecent={(recentId) => {
+              setActiveSessionId(recentId);
               setActiveTab('chat');
-              setEngineStatus(`Loaded query: ${recentQuery}`);
             }}
             onNewSession={() => {
+              setActiveSessionId(null);
               setActiveTab('chat');
             }}
           />
@@ -330,8 +341,12 @@ function App() {
             <ChatStudio 
               symbols={symbols} 
               activeProject={activeProject}
+              projects={projects}
+              activeSessionId={activeSessionId}
+              onSelectSessionId={setActiveSessionId}
               onSelectProject={() => setIsCreateProjectModalOpen(true)}
-              onNavigateTab={(targetTab) => setActiveTab(targetTab)}
+              onSelectProjectName={handleSelectWorkspaceProject}
+              onNavigateTab={(targetTab: 'architecture' | 'spec' | 'audit' | 'tests') => setActiveTab(targetTab)}
               onSelectCitation={handleSelectNodeCitation}
             />
           </div>
@@ -378,7 +393,10 @@ function App() {
 
           {/* Git / PR Studio */}
           <div className={activeTab === 'git' ? 'h-full w-full flex-1' : 'hidden'}>
-            <GitPRStudio onOpenSettings={() => setIsSettingsOpen(true)} />
+            <GitPRStudio onOpenSettings={() => {
+              setSettingsInitialCategory('general');
+              setIsSettingsOpen(true);
+            }} />
           </div>
 
           {/* Docs / Technical Specification Editor */}
@@ -412,6 +430,7 @@ function App() {
           theme={theme}
           onThemeChange={handleThemeChange}
           onClose={() => setIsSettingsOpen(false)} 
+          initialCategory={settingsInitialCategory as any}
         />
       )}
 

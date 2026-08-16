@@ -10,7 +10,8 @@ import {
   GitCommit, 
   FlaskConical, 
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import type { ASTSymbol } from '../services/vaultdoc';
 import { getLocalGitDiff, type GitRepoState, type GitFileDiff } from '../services/git';
@@ -92,11 +93,11 @@ export const PrePRStudio = ({
   const getSeverityBadge = (sev: AuditSeverity) => {
     switch (sev) {
       case 'Critical':
-        return 'bg-red-500/15 text-red-400 border-red-500/30';
+        return 'bg-white/[0.04] text-red-300 border-red-500/30';
       case 'Warning':
-        return 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+        return 'bg-white/[0.04] text-amber-300 border-amber-500/30';
       case 'Info':
-        return 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30';
+        return 'bg-white/[0.04] text-slate-300 border-white/10';
     }
   };
 
@@ -108,121 +109,124 @@ export const PrePRStudio = ({
   };
 
   return (
-    <div className="flex-1 h-full bg-[#080d1a] flex flex-col overflow-hidden">
+    <div className="flex-1 h-full bg-[#131316] flex flex-col overflow-hidden select-none font-sans">
       
-      {/* Unified Top Header (Studio Section) */}
-      <div className="h-14 flex items-center justify-between px-4 bg-[#0D0E13] border-b border-white/5 flex-shrink-0 z-10">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="w-5 h-5 text-cyan-400" />
-            <div>
-              <h2 className="text-xs font-bold text-white tracking-wide uppercase">
-                Shift-Left Pre-PR Review & Local Audit Engine
-              </h2>
-              <p className="text-[10px] text-slate-400">
-                100% offline air-gapped security, edge case, and automated test analysis
-              </p>
-            </div>
+      {/* 1. Flush Edge-to-Edge Sub-Header */}
+      <div className="h-11 px-6 border-b border-white/[0.04] bg-[#131316] flex items-center justify-between flex-shrink-0 z-10">
+        <div className="flex items-center gap-2.5">
+          <div className="w-6 h-6 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-slate-300">
+            <ShieldAlert className="w-3.5 h-3.5" />
           </div>
+          <h2 className="text-xs font-medium text-white tracking-wide">
+            Shift-Left Pre-PR Review
+          </h2>
         </div>
 
-        {/* Audit Metrics */}
-        {auditResult && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-red-500/10 border border-red-500/20 rounded-lg text-xs">
-              <span className="w-2 h-2 rounded-full bg-red-400" />
-              <span className="text-red-300 font-bold">{auditResult.summary.criticalCount} Critical</span>
+        {/* Matte Neutral Slate Status Tags */}
+        <div className="flex items-center gap-2.5">
+          {auditResult && (
+            <div className="hidden sm:flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-slate-300 text-xs font-mono font-medium">
+                <AlertTriangle className="w-3.5 h-3.5 text-slate-400 stroke-[1.5]" />
+                <span>{auditResult.summary.criticalCount} Critical</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-slate-300 text-xs font-mono font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                <span>{auditResult.summary.warningCount} Warnings</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-slate-300 text-xs font-mono font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5 text-slate-400 stroke-[1.5]" />
+                <span>{auditResult.summary.passedChecks} Passed</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-lg text-xs">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span className="text-amber-300 font-bold">{auditResult.summary.warningCount} Warnings</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs">
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-emerald-300 font-medium">{auditResult.summary.passedChecks} Checks Passed</span>
-            </div>
-          </div>
-        )}
-
-        {/* Action button */}
-        <button
-          onClick={handleRunAudit}
-          disabled={isAuditing}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black transition-all shadow-[0_0_12px_rgba(6,182,212,0.3)] active:scale-95 disabled:opacity-50"
-        >
-          {isAuditing ? (
-            <>
-              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-              <span>Auditing...</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-3.5 h-3.5 fill-black" />
-              <span>Run Local Audit</span>
-            </>
           )}
-        </button>
+
+          {/* Primary Action Button */}
+          <button
+            onClick={handleRunAudit}
+            disabled={isAuditing}
+            className={`flex items-center gap-1.5 font-medium text-xs px-3.5 py-1.5 rounded-lg transition-all ${
+              !isAuditing
+                ? 'bg-white hover:bg-slate-200 text-slate-950 cursor-pointer shadow-sm active:scale-95'
+                : 'bg-[#222328] text-slate-500 border border-white/5 cursor-not-allowed opacity-80'
+            }`}
+          >
+            {isAuditing ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Auditing...</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-3.5 h-3.5 fill-slate-950" />
+                <span>Run Local Audit</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Main 2-Column Split: Left Git Diff | Right Structured Findings & Tests */}
       <div className="flex-1 flex overflow-hidden">
         
-        {/* Left Column: Local Git Diff Inspector */}
-        <div className="w-[45%] flex-shrink-0 border-r border-vault-border flex flex-col bg-[#070b16]">
+        {/* Left Column: Modified Files & Diff Inspector */}
+        <div className="w-[42%] flex-shrink-0 border-r border-white/[0.04] bg-[#131316] flex flex-col">
           {/* File selector header */}
-          <div className="p-3 border-b border-vault-border bg-[#090f20] flex items-center justify-between">
+          <div className="h-10 px-4 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01]">
             <div className="flex items-center gap-2">
-              <GitCommit className="w-4 h-4 text-cyan-400" />
-              <span className="text-xs font-bold text-slate-200">
+              <GitCommit className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-medium text-slate-300">
                 Modified Files ({gitState?.fileDiffs.length || 0})
               </span>
             </div>
             <button
               onClick={handleRefreshGit}
-              className="p-1 hover:bg-vault-panel rounded text-slate-400 hover:text-slate-200"
+              className="p-1 hover:bg-white/5 rounded text-slate-400 hover:text-white transition-colors cursor-pointer"
               title="Refresh Git Diff"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-3 h-3" />
             </button>
           </div>
 
           {/* Files List Tabs */}
-          <div className="flex items-center gap-1 p-2 bg-[#090f20]/60 border-b border-vault-border overflow-x-auto custom-scrollbar">
-            {gitState?.fileDiffs.map(f => {
-              const isSelected = selectedFile?.filePath === f.filePath;
-              return (
-                <button
-                  key={f.filePath}
-                  onClick={() => setSelectedFile(f)}
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs whitespace-nowrap transition-all ${
-                    isSelected
-                      ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-semibold'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-vault-panel'
-                  }`}
-                >
-                  <FileCode className="w-3 h-3" />
-                  <span>{f.filePath.split('/').pop()}</span>
-                  <span className="text-[10px] text-emerald-400 font-mono">+{f.addedCount}</span>
-                  <span className="text-[10px] text-red-400 font-mono">-{f.deletedCount}</span>
-                </button>
-              );
-            })}
-          </div>
+          {gitState && gitState.fileDiffs.length > 0 && (
+            <div className="flex items-center gap-1.5 p-2 bg-white/[0.01] border-b border-white/[0.04] overflow-x-auto custom-scrollbar">
+              {gitState.fileDiffs.map(f => {
+                const isSelected = selectedFile?.filePath === f.filePath;
+                return (
+                  <button
+                    key={f.filePath}
+                    onClick={() => setSelectedFile(f)}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs whitespace-nowrap transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-white/10 text-white border border-white/15 font-medium'
+                        : 'text-slate-400 hover:text-slate-200 hover:bg-white/5 border border-transparent'
+                    }`}
+                  >
+                    <FileCode className="w-3 h-3 text-slate-400" />
+                    <span>{f.filePath.split('/').pop()}</span>
+                    <span className="text-[10px] text-emerald-400 font-mono">+{f.addedCount}</span>
+                    <span className="text-[10px] text-red-400 font-mono">-{f.deletedCount}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
 
           {/* Diff Viewer Code Box */}
           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar font-mono text-xs leading-relaxed select-text">
             {selectedFile ? (
-              <div className="space-y-4">
-                <div className="text-[11px] text-slate-400 pb-2 border-b border-vault-border flex items-center justify-between">
-                  <span className="font-semibold text-slate-200">{selectedFile.filePath}</span>
-                  <span className="px-2 py-0.5 rounded bg-slate-800 text-[10px] uppercase font-bold text-slate-300">
+              <div className="space-y-3">
+                <div className="text-[11px] text-slate-400 pb-2 border-b border-white/[0.04] flex items-center justify-between">
+                  <span className="font-medium text-slate-300 truncate max-w-[260px]">{selectedFile.filePath}</span>
+                  <span className="px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[10px] uppercase font-semibold text-slate-400">
                     {selectedFile.status}
                   </span>
                 </div>
 
                 {selectedFile.hunks.map((hunk, hIdx) => (
-                  <div key={hIdx} className="border border-vault-border rounded-lg overflow-hidden bg-[#0d1322]">
-                    <div className="bg-[#090e1a] px-3 py-1 text-[10px] text-cyan-400 border-b border-vault-border/60">
+                  <div key={hIdx} className="border border-white/[0.06] rounded-xl overflow-hidden bg-black/30">
+                    <div className="bg-white/[0.02] px-3 py-1.5 text-[10px] text-slate-400 border-b border-white/[0.06] font-mono">
                       {hunk.header}
                     </div>
                     <div className="py-1">
@@ -234,9 +238,9 @@ export const PrePRStudio = ({
                             key={lIdx}
                             className={`px-3 py-0.5 font-mono text-[11px] ${
                               isAdded
-                                ? 'bg-emerald-500/15 text-emerald-300 border-l-2 border-emerald-400'
+                                ? 'bg-emerald-500/10 text-emerald-300 border-l-2 border-emerald-400'
                                 : isDeleted
-                                  ? 'bg-red-500/15 text-red-300 border-l-2 border-red-400'
+                                  ? 'bg-red-500/10 text-red-300 border-l-2 border-red-400'
                                   : 'text-slate-400'
                             }`}
                           >
@@ -250,14 +254,16 @@ export const PrePRStudio = ({
               </div>
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400">
-                <ShieldCheck className="w-10 h-10 text-emerald-400 opacity-60 mb-2" />
-                <h4 className="text-xs font-bold text-slate-200">Working tree clean.</h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">No uncommitted local diffs detected.</p>
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mb-3">
+                  <ShieldCheck className="w-6 h-6 text-slate-400 stroke-[1.5]" />
+                </div>
+                <h4 className="text-xs font-semibold text-slate-200">Working tree clean</h4>
+                <p className="text-[11px] text-slate-500 mt-1">No uncommitted diffs detected in active workspace.</p>
                 <button
                   onClick={handleRefreshGit}
-                  className="mt-3 px-3 py-1 bg-vault-card hover:bg-vault-panel border border-vault-border rounded text-[11px] text-slate-300 hover:text-white flex items-center gap-1.5"
+                  className="mt-4 px-3.5 py-1.5 bg-white hover:bg-slate-200 text-slate-950 font-medium text-xs rounded-lg shadow-sm active:scale-95 transition-all cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3" />
+                  <RefreshCw className="w-3 h-3 mr-1.5" />
                   <span>Refresh Git Status</span>
                 </button>
               </div>
@@ -266,33 +272,37 @@ export const PrePRStudio = ({
         </div>
 
         {/* Right Column: Parallel Local Auditor Findings & Tests */}
-        <div className="flex-1 flex flex-col bg-[#090e1c] overflow-hidden">
+        <div className="flex-1 flex flex-col bg-[#131316] overflow-hidden">
           
-          {/* Findings Filter Bar */}
-          <div className="p-3 border-b border-vault-border bg-[#0b1426] flex items-center justify-between">
+          {/* Findings Filter Bar with Centered Segmented Glass Pills */}
+          <div className="h-10 px-4 border-b border-white/[0.04] flex items-center justify-between bg-white/[0.01] relative">
+            {/* Left: Section title */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-slate-200">
+              <span className="text-xs font-medium text-slate-300">
                 Auditor Findings ({filteredFindings.length})
               </span>
-              <div className="flex items-center gap-1">
-                {(['all', 'critical', 'warning', 'info'] as const).map(sev => (
-                  <button
-                    key={sev}
-                    onClick={() => onSeverityFilterChange?.(sev)}
-                    className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-all ${
-                      activeSeverityFilter === sev
-                        ? 'bg-cyan-500 text-black shadow-sm'
-                        : 'bg-vault-card border border-vault-border text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {sev}
-                  </button>
-                ))}
-              </div>
+            </div>
+            
+            {/* Center: Segmented Pill [ ALL | CRITICAL | WARNING | INFO ] */}
+            <div className="absolute left-1/2 -translate-x-1/2 bg-white/5 border border-white/5 rounded-lg p-0.5 text-xs inline-flex gap-0.5">
+              {(['all', 'critical', 'warning', 'info'] as const).map(sev => (
+                <button
+                  key={sev}
+                  onClick={() => onSeverityFilterChange?.(sev)}
+                  className={`px-2.5 py-0.5 rounded-md text-[10px] font-semibold uppercase transition-all cursor-pointer ${
+                    activeSeverityFilter === sev
+                      ? 'bg-white/10 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {sev}
+                </button>
+              ))}
             </div>
 
-            <span className="text-[10px] font-mono text-cyan-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Parallel AST Inference
+            {/* Right: AST Inference tag */}
+            <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+              <Sparkles className="w-3 h-3 text-slate-400" /> Parallel AST Inference
             </span>
           </div>
 
@@ -300,9 +310,11 @@ export const PrePRStudio = ({
           <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
             {filteredFindings.length === 0 ? (
               <div className="p-8 text-center text-slate-400">
-                <ShieldCheck className="w-8 h-8 text-emerald-400 mx-auto mb-2" />
-                <p className="text-xs font-bold">No findings for selected severity filter.</p>
-                <p className="text-[11px] opacity-70 mt-1">Code adheres to air-gapped security & logic constraints.</p>
+                <div className="w-10 h-10 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mx-auto mb-2.5">
+                  <ShieldCheck className="w-5 h-5 text-slate-400 stroke-[1.5]" />
+                </div>
+                <p className="text-xs font-semibold text-slate-200">No findings for selected severity filter.</p>
+                <p className="text-[11px] text-slate-500 mt-1">Code adheres to air-gapped security & logic constraints.</p>
               </div>
             ) : (
               filteredFindings.map(finding => {
@@ -311,28 +323,28 @@ export const PrePRStudio = ({
                   <div
                     key={finding.id}
                     onClick={() => handleFindingClick(finding)}
-                    className={`border rounded-xl p-4 transition-all cursor-pointer ${
+                    className={`bg-white/[0.02] border rounded-2xl p-4 transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-[#101b33] border-cyan-400 shadow-[0_0_15px_rgba(6,182,212,0.15)]'
-                        : 'bg-[#0d1527] border-vault-border hover:border-slate-500'
+                        ? 'border-white/20 bg-white/[0.04] shadow-md'
+                        : 'border-white/[0.06] hover:border-white/15'
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${getSeverityBadge(finding.severity)}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase border ${getSeverityBadge(finding.severity)}`}>
                           {finding.severity}
                         </span>
-                        <span className="text-xs font-bold text-slate-100">
+                        <span className="text-xs font-semibold text-white">
                           {finding.category}: {finding.symbol || 'Code Hunk'}
                         </span>
                       </div>
-                      <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                      <span className="text-[10px] font-mono text-slate-400 bg-white/[0.04] px-2 py-0.5 rounded-lg border border-white/10">
                         {finding.confidence}% confidence
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-mono text-cyan-300 mb-2 flex items-center gap-1">
-                      <FileCode className="w-3 h-3 text-cyan-400" />
+                    <div className="text-[11px] font-mono text-slate-400 mb-2 flex items-center gap-1.5">
+                      <FileCode className="w-3 h-3 text-slate-400" />
                       <span>{finding.file}:{finding.line}</span>
                     </div>
 
@@ -342,9 +354,9 @@ export const PrePRStudio = ({
 
                     {/* Flagged Snippet */}
                     {finding.codeSnippet && (
-                      <div className="bg-[#070b16] border border-vault-border rounded-lg p-2.5 mb-3">
-                        <div className="text-[9px] font-mono text-slate-500 mb-1">FLAGGED AST NODE:</div>
-                        <code className="text-[11px] font-mono text-red-300 block whitespace-pre-wrap">
+                      <div className="bg-black/30 border border-white/[0.06] rounded-xl p-3 mb-3">
+                        <div className="text-[9px] font-mono text-slate-500 uppercase tracking-wider mb-1">Flagged AST Node:</div>
+                        <code className="text-[11px] font-mono text-red-300/90 block whitespace-pre-wrap">
                           {finding.codeSnippet}
                         </code>
                       </div>
@@ -352,9 +364,9 @@ export const PrePRStudio = ({
 
                     {/* Fix Suggestion */}
                     {finding.fixSuggestion && (
-                      <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                      <div className="bg-white/[0.02] border border-white/10 rounded-xl p-3.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-[10px] font-semibold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
                             <Sparkles className="w-3 h-3" /> Shift-Left Fix Recommendation
                           </span>
                           <button
@@ -364,10 +376,10 @@ export const PrePRStudio = ({
                               setCopiedFix(true);
                               setTimeout(() => setCopiedFix(false), 2000);
                             }}
-                            className="text-[10px] text-emerald-400 hover:text-white flex items-center gap-1"
+                            className="text-[10px] text-emerald-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             {copiedFix ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                            <span>{copiedFix ? 'Copied' : 'Copy Fix'}</span>
+                            <span>{copiedFix ? 'Copied' : 'Apply Shift-Left Fix'}</span>
                           </button>
                         </div>
                         <p className="text-xs text-emerald-200 font-mono leading-relaxed">
@@ -383,11 +395,11 @@ export const PrePRStudio = ({
 
           {/* Bottom Generated Unit Test Suite Card */}
           {auditResult?.generatedTests && (
-            <div className="border-t border-vault-border bg-[#0b1428] p-3">
+            <div className="border-t border-white/[0.04] bg-white/[0.01] p-4">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">
-                  <FlaskConical className="w-4 h-4 text-cyan-400" />
-                  <span className="text-xs font-bold text-slate-200">
+                  <FlaskConical className="w-4 h-4 text-slate-400" />
+                  <span className="text-xs font-semibold text-slate-200">
                     Automated Test Suite for Flagged Edge Cases
                   </span>
                 </div>
@@ -397,14 +409,14 @@ export const PrePRStudio = ({
                     setCopiedTest(true);
                     setTimeout(() => setCopiedTest(false), 2000);
                   }}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded bg-vault-base border border-vault-border hover:border-vault-accent text-xs font-medium text-slate-200 hover:text-white transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-medium text-slate-300 hover:text-white transition-all cursor-pointer"
                 >
-                  {copiedTest ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-cyan-400" />}
+                  {copiedTest ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3 text-slate-400" />}
                   <span>{copiedTest ? 'Copied' : 'Copy Test Suite'}</span>
                 </button>
               </div>
 
-              <div className="bg-[#070b14] border border-vault-border rounded-lg p-2.5 max-h-28 overflow-y-auto custom-scrollbar font-mono text-[10px] text-slate-300">
+              <div className="bg-black/30 border border-white/[0.06] rounded-xl p-3 max-h-28 overflow-y-auto custom-scrollbar font-mono text-[10px] text-slate-300">
                 <pre>{auditResult.generatedTests}</pre>
               </div>
             </div>

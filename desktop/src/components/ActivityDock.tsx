@@ -4,7 +4,6 @@ import {
   Bell, 
   MessageSquarePlus, 
   GitPullRequest, 
-  Clock, 
   Layers, 
   Folder, 
   HelpCircle,
@@ -21,8 +20,32 @@ import {
   Cpu,
   LogOut,
   Database,
-  Check
+  Check,
+  FileCode,
+  FlaskConical,
+  Pin,
+  Edit2,
+  Archive,
+  Trash2,
+  Copy,
+  GitBranch,
+  Share2,
+  FolderMinus,
+  CircleDot
 } from 'lucide-react';
+
+import { 
+  type ChatSession, 
+  getStoredChatSessions, 
+  getStoredActiveSessionId, 
+  saveStoredActiveSessionId,
+  renameChatSession,
+  togglePinChatSession,
+  archiveChatSession,
+  moveChatSessionToProject,
+  deleteChatSession,
+  forkChatSession
+} from '../services/chatSessions';
 
 export type ActivityTab = 'chat' | 'docs' | 'architecture' | 'spec' | 'audit' | 'tests' | 'git';
 
@@ -31,9 +54,11 @@ interface ActivityDockProps {
   onTabChange: (tab: ActivityTab) => void;
   activeProject?: string;
   projects?: { id: string; name: string }[];
+  activeSessionId?: string | null;
+  onSelectSession?: (sessionId: string) => void;
   onSelectProject?: (project: string) => void;
   onOpenFolder?: () => void;
-  onOpenSettings?: () => void;
+  onOpenSettings?: (category?: string) => void;
   onSelectRecent?: (recentPrompt: string) => void;
   onNewSession?: () => void;
 }
@@ -46,6 +71,8 @@ export const ActivityDock = ({
     { id: 'DATADUKAN_PRO', name: 'DATADUKAN_PRO' },
     { id: 'EVO_RETAIL', name: 'EVO_RETAIL' }
   ],
+  activeSessionId: propActiveSessionId,
+  onSelectSession,
   onSelectProject,
   onOpenFolder,
   onOpenSettings,
@@ -54,20 +81,48 @@ export const ActivityDock = ({
 }: ActivityDockProps) => {
   const [isHelpMenuOpen, setIsHelpMenuOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [sessions, setSessions] = useState<ChatSession[]>(() => getStoredChatSessions());
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
+    return propActiveSessionId !== undefined ? propActiveSessionId : getStoredActiveSessionId();
+  });
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    session: ChatSession;
+    project?: { id: string; name: string };
+  } | null>(null);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const helpMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const contextMenuRef = useRef<HTMLDivElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
-  const navItems = [
-    { id: 'chat' as ActivityTab, label: 'New chat', icon: MessageSquarePlus, shortcut: 'Ctrl+N' },
-    { id: 'audit' as ActivityTab, label: 'Pull requests', icon: GitPullRequest },
-    { id: 'tests' as ActivityTab, label: 'Scheduled', icon: Clock },
-    { id: 'architecture' as ActivityTab, label: 'Plugins', icon: Layers },
+  const navItems: { id: ActivityTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+    { id: 'chat', label: 'New chat', icon: MessageSquarePlus },
+    { id: 'audit', label: 'Pre-PR Audits', icon: ShieldCheck },
+    { id: 'architecture', label: 'Architecture Canvas', icon: Layers },
+    { id: 'spec', label: 'Ticket Specs', icon: FileCode },
+    { id: 'tests', label: 'Test Suites', icon: FlaskConical },
+    { id: 'git', label: 'Git Sync', icon: GitPullRequest },
   ];
 
-  const recents = [
-    'Auth flow validation',
-    'Schema AST generation'
-  ];
+  useEffect(() => {
+    if (propActiveSessionId !== undefined) {
+      setActiveSessionId(propActiveSessionId);
+    }
+  }, [propActiveSessionId]);
+
+  useEffect(() => {
+    const handleSessionsSync = () => {
+      setSessions(getStoredChatSessions());
+      setActiveSessionId(getStoredActiveSessionId());
+    };
+    window.addEventListener('vaultdoc_sessions_change', handleSessionsSync);
+    return () => window.removeEventListener('vaultdoc_sessions_change', handleSessionsSync);
+  }, []);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -77,21 +132,146 @@ export const ActivityDock = ({
       if (profileMenuRef.current && !profileMenuRef.current.contains(event.target as Node)) {
         setIsProfileMenuOpen(false);
       }
+      if (contextMenuRef.current && !contextMenuRef.current.contains(event.target as Node)) {
+        setContextMenu(null);
+      }
     };
-    if (isHelpMenuOpen || isProfileMenuOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsHelpMenuOpen(false);
+        setIsProfileMenuOpen(false);
+        setContextMenu(null);
+        setEditingSessionId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isHelpMenuOpen, isProfileMenuOpen]);
+  }, []);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 2200);
+  };
 
   const handleNewSession = () => {
+    saveStoredActiveSessionId(null);
+    setActiveSessionId(null);
     if (onNewSession) {
       onNewSession();
     } else {
       onTabChange('chat');
     }
+  };
+
+  const handleSelectSession = (sessionId: string) => {
+    saveStoredActiveSessionId(sessionId);
+    setActiveSessionId(sessionId);
+    if (onSelectSession) {
+      onSelectSession(sessionId);
+    } else if (onSelectRecent) {
+      onSelectRecent(sessionId);
+    }
+    onTabChange('chat');
+  };
+
+  const handleCommitRename = (sessionId: string) => {
+    if (editingTitle.trim()) {
+      renameChatSession(sessionId, editingTitle.trim());
+      showToast("Chat renamed");
+    }
+    setEditingSessionId(null);
+  };
+
+  const handleTogglePin = (session: ChatSession) => {
+    const isPinned = togglePinChatSession(session.id);
+    setContextMenu(null);
+    showToast(isPinned ? "Chat pinned" : "Chat unpinned");
+  };
+
+  const handleRemoveFromProject = (session: ChatSession, projName?: string) => {
+    moveChatSessionToProject(session.id, 'general');
+    setContextMenu(null);
+    showToast(projName ? `Removed from ${projName}` : "Removed from project");
+  };
+
+  const handleStartRename = (session: ChatSession) => {
+    setContextMenu(null);
+    setEditingSessionId(session.id);
+    setEditingTitle(session.title);
+    setTimeout(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }, 50);
+  };
+
+  const handleArchive = (session: ChatSession) => {
+    archiveChatSession(session.id);
+    setContextMenu(null);
+    showToast("Chat archived");
+  };
+
+  const handleMarkAsUnread = () => {
+    setContextMenu(null);
+    showToast("Marked as unread");
+  };
+
+  const handleOpenInExplorer = (session: ChatSession, project?: { id: string; name: string }) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(project ? project.name : session.title);
+    }
+    setContextMenu(null);
+    showToast("Opened in Explorer");
+  };
+
+  const handleCopyWorkingDir = (project?: { id: string; name: string }) => {
+    const text = project ? project.name : 'Workspace Root';
+    navigator.clipboard.writeText(text);
+    setContextMenu(null);
+    showToast("Copied working directory");
+  };
+
+  const handleCopySessionId = (session: ChatSession) => {
+    navigator.clipboard.writeText(session.id);
+    setContextMenu(null);
+    showToast("Copied session ID");
+  };
+
+  const handleCopyDeeplink = (session: ChatSession) => {
+    navigator.clipboard.writeText(`vaultdoc://chat/${session.id}`);
+    setContextMenu(null);
+    showToast("Copied deeplink");
+  };
+
+  const handleForkChat = (session: ChatSession) => {
+    const forked = forkChatSession(session.id);
+    setContextMenu(null);
+    if (forked) {
+      handleSelectSession(forked.id);
+      showToast("Chat forked");
+    }
+  };
+
+  const handleForkChatWorktree = (session: ChatSession) => {
+    const forked = forkChatSession(session.id);
+    setContextMenu(null);
+    if (forked) {
+      handleSelectSession(forked.id);
+      showToast("Forked in new worktree");
+    }
+  };
+
+  const handleDelete = (session: ChatSession) => {
+    deleteChatSession(session.id);
+    setContextMenu(null);
+    showToast("Chat deleted");
   };
 
   return (
@@ -172,48 +352,187 @@ export const ActivityDock = ({
               <Plus className="w-3.5 h-3.5" />
             </button>
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             {projects.length > 0 ? (
-              projects.map(proj => (
-                <button
-                  key={proj.id}
-                  type="button"
-                  onClick={() => onSelectProject?.(proj.id)}
-                  className={`w-full px-2 py-1.5 rounded-md flex items-center gap-2 text-left transition-colors cursor-pointer ${
-                    activeProject === proj.id 
-                      ? 'bg-white/5 text-white font-medium' 
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Folder className="w-3.5 h-3.5 text-slate-500" />
-                  <span className="truncate text-xs font-mono">{proj.name}</span>
-                </button>
-              ))
+              projects.map(proj => {
+                const projectSessions = sessions.filter(s => s.projectId === proj.id && !s.isArchived);
+                const isProjectSelected = activeProject === proj.id;
+
+                return (
+                  <div key={proj.id} className="space-y-0.5">
+                    {/* Project Folder Row */}
+                    <button
+                      type="button"
+                      onClick={() => onSelectProject?.(proj.id)}
+                      className={`w-full px-2 py-1 rounded-md flex items-center gap-2 text-left transition-colors cursor-pointer group ${
+                        isProjectSelected ? 'text-sky-300 bg-sky-950/30' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <Folder className={`w-3.5 h-3.5 ${isProjectSelected ? 'text-sky-400' : 'text-slate-500 group-hover:text-sky-400'}`} />
+                      <span className="truncate text-xs font-mono group-hover:text-slate-200">{proj.name}</span>
+                      {projectSessions.length > 0 && (
+                        <span className="ml-auto text-[10px] text-slate-500 font-mono">
+                          {projectSessions.length}
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Nested Chats Assigned to this Project */}
+                    {projectSessions.length > 0 && (
+                      <div className="space-y-0.5">
+                        {projectSessions.map(session => {
+                          const isActive = activeTab === 'chat' && activeSessionId === session.id;
+
+                          if (editingSessionId === session.id) {
+                            return (
+                              <form
+                                key={session.id}
+                                onSubmit={(e) => {
+                                  e.preventDefault();
+                                  handleCommitRename(session.id);
+                                }}
+                                className="w-full pl-6 pr-2 py-0.5"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <input
+                                  ref={renameInputRef}
+                                  type="text"
+                                  value={editingTitle}
+                                  onChange={(e) => setEditingTitle(e.target.value)}
+                                  onBlur={() => handleCommitRename(session.id)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Escape') setEditingSessionId(null);
+                                  }}
+                                  className="w-full bg-[#1c1c22] border border-sky-500 rounded px-1.5 py-0.5 text-xs text-white outline-none font-sans"
+                                  autoFocus
+                                />
+                              </form>
+                            );
+                          }
+
+                          return (
+                            <button
+                              key={session.id}
+                              type="button"
+                              onClick={() => {
+                                onSelectProject?.(proj.id);
+                                handleSelectSession(session.id);
+                              }}
+                              onContextMenu={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const menuWidth = 240;
+                                const menuHeight = 420;
+                                const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+                                const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+                                setContextMenu({
+                                  x,
+                                  y,
+                                  session,
+                                  project: proj
+                                });
+                              }}
+                              className={`w-full pl-6 pr-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer text-xs flex items-center justify-between group ${
+                                isActive 
+                                  ? 'bg-white/10 text-white font-medium shadow-sm' 
+                                  : 'text-slate-400 hover:text-white hover:bg-white/5'
+                              }`}
+                              title={`${session.title} (${proj.name}) - Right-click for options`}
+                            >
+                              <span className="truncate flex-1">{session.title}</span>
+                              {session.isPinned && (
+                                <Pin size={10} className="text-sky-400 flex-shrink-0 ml-1.5 opacity-80" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
             ) : (
               <p className="text-[11px] text-slate-600 px-2 py-1">No projects</p>
             )}
           </div>
         </div>
 
-        {/* Recents Section */}
+        {/* Recents Section (General / Unassigned Chats) */}
         <div className="px-3 mt-6">
-          <div className="text-[11px] font-medium text-slate-400 mb-2">
+          <div className="text-[11px] font-medium text-slate-400 mb-2 flex items-center justify-between">
             <span>Recents</span>
+            {sessions.filter(s => (!s.projectId || s.projectId === 'general' || s.projectId === '') && s.isPinned && !s.isArchived).length > 0 && (
+              <span className="text-[9px] text-sky-400 font-mono flex items-center gap-0.5">
+                <Pin size={9} /> {sessions.filter(s => (!s.projectId || s.projectId === 'general' || s.projectId === '') && s.isPinned && !s.isArchived).length} pinned
+              </span>
+            )}
           </div>
           <div className="space-y-0.5">
-            {recents.length > 0 ? (
-              recents.map((recent, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => onSelectRecent?.(recent)}
-                  className="w-full px-2 py-1.5 rounded-md text-left text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer truncate text-xs"
-                >
-                  {recent}
-                </button>
-              ))
+            {sessions.filter(s => (!s.projectId || s.projectId === 'general' || s.projectId === '') && !s.isArchived).length > 0 ? (
+              [...sessions.filter(s => (!s.projectId || s.projectId === 'general' || s.projectId === '') && !s.isArchived)].sort((a, b) => (b.isPinned ? 1 : 0) - (a.isPinned ? 1 : 0)).map((session) => {
+                const isActive = activeTab === 'chat' && activeSessionId === session.id;
+
+                if (editingSessionId === session.id) {
+                  return (
+                    <form
+                      key={session.id}
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleCommitRename(session.id);
+                      }}
+                      className="w-full px-2 py-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        ref={renameInputRef}
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={() => handleCommitRename(session.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Escape') setEditingSessionId(null);
+                        }}
+                        className="w-full bg-[#1c1c22] border border-sky-500 rounded px-1.5 py-0.5 text-xs text-white outline-none font-sans"
+                        autoFocus
+                      />
+                    </form>
+                  );
+                }
+
+                return (
+                  <button
+                    key={session.id}
+                    type="button"
+                    onClick={() => handleSelectSession(session.id)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const menuWidth = 240;
+                      const menuHeight = 420;
+                      const x = Math.min(e.clientX, window.innerWidth - menuWidth - 8);
+                      const y = Math.min(e.clientY, window.innerHeight - menuHeight - 8);
+                      setContextMenu({
+                        x,
+                        y,
+                        session
+                      });
+                    }}
+                    className={`w-full px-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer text-xs flex items-center justify-between group ${
+                      isActive 
+                        ? 'bg-white/10 text-white font-medium shadow-sm' 
+                        : 'text-slate-400 hover:text-white hover:bg-white/5'
+                    }`}
+                    title={`${session.title} - Right-click for options`}
+                  >
+                    <span className="truncate flex-1">{session.title}</span>
+                    {session.isPinned && (
+                      <Pin size={11} className="text-sky-400 flex-shrink-0 ml-1.5 opacity-80 group-hover:opacity-100" />
+                    )}
+                  </button>
+                );
+              })
             ) : (
-              <p className="text-[11px] text-slate-600 px-2 py-1">No chats</p>
+              <p className="text-[11px] text-slate-600 px-2 py-1">No unassigned chats</p>
             )}
           </div>
         </div>
@@ -245,7 +564,7 @@ export const ActivityDock = ({
               type="button"
               onClick={() => {
                 setIsProfileMenuOpen(false);
-                onOpenSettings?.();
+                onOpenSettings?.('general');
               }}
               className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
             >
@@ -283,6 +602,24 @@ export const ActivityDock = ({
               <span className="text-[10px] text-slate-500 font-mono">512-dim</span>
             </button>
 
+            {/* Archived Chats in Profile Popover */}
+            <button
+              type="button"
+              onClick={() => {
+                setIsProfileMenuOpen(false);
+                onOpenSettings?.('archived');
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
+            >
+              <div className="flex items-center gap-2">
+                <Archive size={14} className="text-amber-400" />
+                <span>Archived Chats</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono px-1.5 py-0.5 bg-white/5 rounded-full">
+                {sessions.filter(s => s.isArchived).length}
+              </span>
+            </button>
+
             <div className="border-t border-white/[0.06] my-1" />
 
             {/* Settings */}
@@ -290,7 +627,7 @@ export const ActivityDock = ({
               type="button"
               onClick={() => {
                 setIsProfileMenuOpen(false);
-                onOpenSettings?.();
+                onOpenSettings?.('general');
               }}
               className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left"
             >
@@ -443,6 +780,155 @@ export const ActivityDock = ({
           </button>
         </div>
       </div>
+
+      {/* Custom Context Menu (Matching Codex Right-Click Style) */}
+      {contextMenu && (
+        <div
+          ref={contextMenuRef}
+          style={{
+            top: `${contextMenu.y}px`,
+            left: `${contextMenu.x}px`
+          }}
+          className="fixed w-56 bg-[#18181c] border border-white/10 rounded-2xl shadow-2xl p-1.5 z-[100] animate-fadeIn text-xs text-slate-300 font-sans select-none backdrop-blur-xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Pin chat */}
+          <button
+            type="button"
+            onClick={() => handleTogglePin(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Pin size={13} className={contextMenu.session.isPinned ? "text-sky-400" : "text-slate-400 group-hover:text-white"} />
+            <span>{contextMenu.session.isPinned ? "Unpin chat" : "Pin chat"}</span>
+          </button>
+
+          {/* Remove from Project (if assigned to project) */}
+          {contextMenu.project && (
+            <button
+              type="button"
+              onClick={() => handleRemoveFromProject(contextMenu.session, contextMenu.project?.name)}
+              className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+            >
+              <FolderMinus size={13} className="text-slate-400 group-hover:text-white" />
+              <span className="truncate">Remove from {contextMenu.project.name}</span>
+            </button>
+          )}
+
+          {/* Rename chat */}
+          <button
+            type="button"
+            onClick={() => handleStartRename(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Edit2 size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Rename chat</span>
+          </button>
+
+          {/* Archive chat */}
+          <button
+            type="button"
+            onClick={() => handleArchive(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Archive size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Archive chat</span>
+          </button>
+
+          {/* Mark as unread */}
+          <button
+            type="button"
+            onClick={handleMarkAsUnread}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <CircleDot size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Mark as unread</span>
+          </button>
+
+          <div className="border-t border-white/[0.08] my-1" />
+
+          {/* Open in Explorer */}
+          <button
+            type="button"
+            onClick={() => handleOpenInExplorer(contextMenu.session, contextMenu.project)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <ExternalLink size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Open in Explorer</span>
+          </button>
+
+          {/* Copy working directory */}
+          <button
+            type="button"
+            onClick={() => handleCopyWorkingDir(contextMenu.project)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Folder size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Copy working directory</span>
+          </button>
+
+          {/* Copy session ID */}
+          <button
+            type="button"
+            onClick={() => handleCopySessionId(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Copy size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Copy session ID</span>
+          </button>
+
+          {/* Copy deeplink */}
+          <button
+            type="button"
+            onClick={() => handleCopyDeeplink(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Share2 size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Copy deeplink</span>
+          </button>
+
+          <div className="border-t border-white/[0.08] my-1" />
+
+          {/* Fork chat */}
+          <button
+            type="button"
+            onClick={() => handleForkChat(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <GitBranch size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Fork chat</span>
+          </button>
+
+          {/* Fork chat in new worktree */}
+          <button
+            type="button"
+            onClick={() => handleForkChatWorktree(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl hover:bg-white/10 hover:text-white transition-colors cursor-pointer text-left group"
+          >
+            <Layers size={13} className="text-slate-400 group-hover:text-white" />
+            <span>Fork chat in new worktree</span>
+          </button>
+
+          <div className="border-t border-white/[0.08] my-1" />
+
+          {/* Delete chat */}
+          <button
+            type="button"
+            onClick={() => handleDelete(contextMenu.session)}
+            className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-xl text-red-400/80 hover:text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer text-left group"
+          >
+            <Trash2 size={13} className="text-red-400/80 group-hover:text-red-400" />
+            <span>Delete chat</span>
+          </button>
+        </div>
+      )}
+
+      {/* Floating Action Feedback Toast */}
+      {toastMessage && (
+        <div className="fixed bottom-4 left-4 z-[110] px-3 py-1.5 bg-[#1e1e24]/95 backdrop-blur-md border border-white/15 text-white text-xs font-sans rounded-xl shadow-2xl flex items-center gap-2 animate-fadeIn">
+          <Check size={13} className="text-emerald-400 flex-shrink-0" />
+          <span>{toastMessage}</span>
+        </div>
+      )}
 
     </aside>
   );

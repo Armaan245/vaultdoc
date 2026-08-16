@@ -31,7 +31,9 @@ import {
   Pencil,
   X,
   Download,
-  Globe
+  Globe,
+  Archive,
+  RotateCcw
 } from 'lucide-react';
 import { 
   getStoredThemeConfig, 
@@ -50,6 +52,13 @@ import {
   saveGitHubConfig, 
   type GitHubConfig 
 } from '../services/github';
+import { 
+  type ChatSession, 
+  getStoredChatSessions, 
+  unarchiveChatSession, 
+  deleteChatSession,
+  saveStoredActiveSessionId
+} from '../services/chatSessions';
 
 interface SettingsProps {
   activeMode: 1 | 2;
@@ -57,6 +66,7 @@ interface SettingsProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   onClose: () => void;
+  initialCategory?: SettingCategory;
 }
 
 interface CustomSelectOption {
@@ -129,6 +139,7 @@ const CustomSelect = ({
 type SettingCategory = 
   | 'general'
   | 'profile'
+  | 'archived'
   | 'appearance'
   | 'shortcuts'
   | 'model'
@@ -142,11 +153,32 @@ type SettingCategory =
 
 export const SettingsModal: React.FC<SettingsProps> = ({
   onThemeChange,
-  onClose
+  onClose,
+  initialCategory
 }) => {
-  const [activeCategory, setActiveCategory] = useState<SettingCategory>('general');
+  const [activeCategory, setActiveCategory] = useState<SettingCategory>(initialCategory || 'general');
   const [searchQuery, setSearchQuery] = useState('');
   const contentMainRef = React.useRef<HTMLElement>(null);
+
+  // Archived Chats State
+  const [archivedSessions, setArchivedSessions] = useState<ChatSession[]>(() => 
+    getStoredChatSessions().filter(s => s.isArchived)
+  );
+  const [archivedSearch, setArchivedSearch] = useState<string>('');
+
+  React.useEffect(() => {
+    const handleSessionsSync = () => {
+      setArchivedSessions(getStoredChatSessions().filter(s => s.isArchived));
+    };
+    window.addEventListener('vaultdoc_sessions_change', handleSessionsSync);
+    return () => window.removeEventListener('vaultdoc_sessions_change', handleSessionsSync);
+  }, []);
+
+  React.useEffect(() => {
+    if (initialCategory) {
+      setActiveCategory(initialCategory);
+    }
+  }, [initialCategory]);
 
   React.useEffect(() => {
     contentMainRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -300,12 +332,31 @@ export const SettingsModal: React.FC<SettingsProps> = ({
     setTimeout(() => setIsClearingCache(false), 1000);
   };
 
+  const handleRestoreArchived = (sessionId: string) => {
+    unarchiveChatSession(sessionId);
+  };
+
+  const handleRestoreAllArchived = () => {
+    archivedSessions.forEach(s => unarchiveChatSession(s.id));
+  };
+
+  const handleDeleteArchived = (sessionId: string) => {
+    deleteChatSession(sessionId);
+  };
+
+  const handleOpenArchived = (sessionId: string) => {
+    unarchiveChatSession(sessionId);
+    saveStoredActiveSessionId(sessionId);
+    onClose();
+  };
+
   const navCategories = [
     {
       group: 'PERSONAL',
       items: [
         { id: 'general' as SettingCategory, label: 'General', icon: Settings },
         { id: 'profile' as SettingCategory, label: 'Profile', icon: User },
+        { id: 'archived' as SettingCategory, label: 'Archived Chats', icon: Archive },
         { id: 'appearance' as SettingCategory, label: 'Appearance & Theme', icon: Palette },
         { id: 'shortcuts' as SettingCategory, label: 'Keyboard shortcuts', icon: Keyboard },
       ]
@@ -629,6 +680,119 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                       </div>
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* ARCHIVED CHATS */}
+            {activeCategory === 'archived' && (
+              <div className="space-y-6 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-medium text-white tracking-tight">Archived Chats</h1>
+                    <p className="text-xs text-slate-400 mt-1">
+                      View, restore, or permanently remove chat sessions you have archived.
+                    </p>
+                  </div>
+                  {archivedSessions.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleRestoreAllArchived}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white border border-white/10 transition-colors cursor-pointer"
+                    >
+                      <RotateCcw size={13} className="text-amber-400" />
+                      <span>Restore All</span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Bar */}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                    <Search size={14} />
+                  </div>
+                  <input
+                    type="text"
+                    value={archivedSearch}
+                    onChange={(e) => setArchivedSearch(e.target.value)}
+                    placeholder="Search archived chats by title or project..."
+                    className="w-full bg-[#18181c] border border-white/[0.08] rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-slate-500 outline-none focus:border-sky-500/50 transition-colors"
+                  />
+                </div>
+
+                {/* Archived List */}
+                <div className="space-y-2.5">
+                  {archivedSessions.length === 0 ? (
+                    <div className="bg-[#18181c] border border-white/5 rounded-2xl p-12 text-center">
+                      <Archive size={36} className="mx-auto mb-3 text-slate-600" />
+                      <h3 className="text-sm font-medium text-white">No archived chats</h3>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        When you archive a chat from your Projects or Recents sidebar, it will be safely kept here.
+                      </p>
+                    </div>
+                  ) : (
+                    archivedSessions
+                      .filter(s => {
+                        if (!archivedSearch.trim()) return true;
+                        const q = archivedSearch.toLowerCase();
+                        return s.title.toLowerCase().includes(q) || (s.projectId && s.projectId.toLowerCase().includes(q));
+                      })
+                      .map(session => (
+                        <div
+                          key={session.id}
+                          className="bg-[#18181c] border border-white/[0.06] hover:border-white/15 rounded-2xl p-4 flex items-center justify-between transition-all group"
+                        >
+                          <div className="min-w-0 flex-1 mr-4">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <span className="text-sm font-medium text-white truncate">{session.title}</span>
+                              {session.projectId && session.projectId !== 'general' && (
+                                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                                  {session.projectId}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3 text-xs text-slate-500 font-mono">
+                              <span>{session.messages?.length || 0} messages</span>
+                              <span>•</span>
+                              <span>Updated {new Date(session.updatedAt || session.createdAt).toLocaleDateString()}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Restore Button */}
+                            <button
+                              type="button"
+                              onClick={() => handleRestoreArchived(session.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-xs text-slate-300 hover:text-white border border-white/5 transition-colors cursor-pointer"
+                              title="Restore to active sidebar"
+                            >
+                              <RotateCcw size={13} className="text-amber-400" />
+                              <span>Restore</span>
+                            </button>
+
+                            {/* Open Chat */}
+                            <button
+                              type="button"
+                              onClick={() => handleOpenArchived(session.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-200 text-xs text-slate-950 font-medium transition-colors cursor-pointer shadow-sm active:scale-95"
+                              title="Restore and open chat"
+                            >
+                              <span>Open</span>
+                            </button>
+
+                            {/* Delete Permanently */}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteArchived(session.id)}
+                              className="p-2 rounded-xl hover:bg-rose-500/10 text-slate-500 hover:text-rose-400 transition-colors cursor-pointer"
+                              title="Delete permanently"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                  )}
                 </div>
               </div>
             )}

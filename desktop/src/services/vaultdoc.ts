@@ -9,6 +9,7 @@ export interface ASTSymbol {
   filePath: string;
   startLine: number;
   endLine: number;
+  docstring?: string;
 }
 
 export interface RAGChunk {
@@ -17,6 +18,7 @@ export interface RAGChunk {
   type: string;
   code: string;
   distance: number;
+  summary?: string;
 }
 
 /**

@@ -56,7 +56,7 @@ export const ArchitectureStudio = ({
       theme: 'dark',
       themeVariables: {
         darkMode: true,
-        background: '#070C18',
+        background: '#0B0C10',
         primaryColor: '#0c4a6e',
         primaryTextColor: '#f8fafc',
         primaryBorderColor: '#0284c7',
@@ -168,76 +168,75 @@ export const ArchitectureStudio = ({
   };
 
   return (
-    <div className="flex-1 h-full bg-[#070c18] flex flex-col relative overflow-hidden select-none">
+    <div className="flex-1 h-full bg-[#131316] flex flex-col relative overflow-hidden select-none font-sans">
       
-      {/* Top Header Controls Bar (Tabs Left, Exports Right - Matching Reference Image 1) */}
-      {/* Unified Top Header (Studio Section) */}
-      <div className="h-14 flex items-center justify-between px-4 bg-[#0D0E13] border-b border-white/5 flex-shrink-0 z-20 print:hidden">
+      {/* 1. Flush Edge-to-Edge Sub-Header */}
+      <div className="h-11 px-6 border-b border-white/[0.04] bg-[#131316] flex items-center justify-between flex-shrink-0 z-20 print:hidden">
         
-        {/* Left View Switcher Tabs */}
-        <div className="flex items-center gap-1.5 bg-[#0b1325] p-1 rounded-xl border border-vault-border/60 shadow-inner">
+        {/* Left View Switcher Segmented Glass Tab */}
+        <div className="bg-white/5 border border-white/10 p-0.5 rounded-xl text-xs flex gap-0.5">
           <button
             onClick={() => onViewChange('system')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeView === 'system'
-                ? 'bg-[#101b33] text-white border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-[#0e172a] border border-transparent'
+                ? 'bg-white/10 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             System Design
           </button>
           <button
             onClick={() => onViewChange('architecture')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeView === 'architecture'
-                ? 'bg-[#101b33] text-white border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-[#0e172a] border border-transparent'
+                ? 'bg-white/10 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Architecture Map
           </button>
           <button
             onClick={() => onViewChange('flow')}
-            className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            className={`px-3 py-1 rounded-lg text-xs font-medium transition-all cursor-pointer ${
               activeView === 'flow'
-                ? 'bg-[#101b33] text-white border border-cyan-500/50 shadow-[0_0_12px_rgba(6,182,212,0.2)]'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-[#0e172a] border border-transparent'
+                ? 'bg-white/10 text-white shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             Component Flow
           </button>
         </div>
 
-        {/* Right Export Actions */}
+        {/* Right Floating Export Actions */}
         <div className="flex items-center gap-2">
           <button
             onClick={handleExportSvg}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#0b1325] border border-vault-border/70 hover:border-cyan-500/50 text-slate-200 hover:text-white transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5 transition-all cursor-pointer"
             title="Download vector SVG file"
           >
-            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <Download className="w-3.5 h-3.5 text-sky-400" />
             <span>Export SVG</span>
           </button>
           <button
             onClick={handleCopyMermaid}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#0b1325] border border-vault-border/70 hover:border-cyan-500/50 text-slate-200 hover:text-white transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5 transition-all cursor-pointer"
             title="Copy raw Mermaid markup"
           >
-            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-cyan-400" />}
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-sky-400" />}
             <span>{copied ? 'Copied' : 'Copy Mermaid'}</span>
           </button>
           <button
             onClick={handleExportPdf}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[#0b1325] border border-vault-border/70 hover:border-cyan-500/50 text-slate-200 hover:text-white transition-all shadow-sm active:scale-95"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white border border-white/5 transition-all cursor-pointer"
             title="Export architecture report as PDF"
           >
-            <Download className="w-3.5 h-3.5 text-cyan-400" />
+            <Download className="w-3.5 h-3.5 text-sky-400" />
             <span>Export PDF</span>
           </button>
         </div>
       </div>
 
-      {/* Main Interactive Pan/Zoom Canvas */}
+      {/* Main Diagram Canvas View */}
       <div
         ref={containerRef}
         onMouseDown={handleMouseDown}
@@ -245,45 +244,45 @@ export const ArchitectureStudio = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
-        className="flex-1 w-full h-full cursor-grab active:cursor-grabbing flex items-center justify-center relative overflow-hidden bg-[radial-gradient(#1e293b_1.2px,transparent_1.2px)] [background-size:24px_24px]"
+        className="flex-1 w-full h-full cursor-grab active:cursor-grabbing flex items-center justify-center relative overflow-hidden bg-[#131316] bg-[radial-gradient(rgba(255,255,255,0.06)_1px,transparent_1px)] [background-size:24px_24px]"
       >
-        {/* Floating Top Right Legend (Matching Reference Image 1) */}
-        <div className="absolute top-5 right-5 z-20 bg-[#091020]/90 backdrop-blur-md border border-vault-border/70 rounded-xl p-3 shadow-2xl flex flex-col gap-2 pointer-events-none print:hidden">
+        {/* Floating Top Right Legend (Matte Slate Card) */}
+        <div className="absolute top-5 right-5 z-20 bg-[#16171B] border border-white/10 rounded-xl px-3.5 py-2.5 shadow-xl flex flex-col gap-2 pointer-events-none print:hidden">
           <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
-            <div className="w-2.5 h-2.5 rounded-sm bg-[#38bdf8] shadow-[0_0_6px_#38bdf8]" />
+            <div className="w-2 h-2 rounded-full bg-sky-400" />
             <span>Client / Core</span>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
-            <div className="w-2.5 h-2.5 rounded-sm bg-[#818cf8] shadow-[0_0_6px_#818cf8]" />
+            <div className="w-2 h-2 rounded-full bg-indigo-400" />
             <span>Data / Auth</span>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-medium text-slate-300">
-            <div className="w-2.5 h-2.5 rounded-sm bg-[#fbbf24] shadow-[0_0_6px_#fbbf24]" />
+            <div className="w-2 h-2 rounded-full bg-amber-400" />
             <span>Workers</span>
           </div>
         </div>
 
-        {/* Floating Bottom Right Vertical Zoom Bar (Matching Reference Image 1) */}
-        <div className="absolute bottom-6 right-6 z-20 flex flex-col items-center bg-[#091020]/95 backdrop-blur-md border border-vault-border/80 rounded-xl p-1 shadow-2xl gap-1 print:hidden">
+        {/* Floating Bottom Right Vertical Zoom Bar */}
+        <div className="absolute bottom-6 right-6 z-20 flex flex-col items-center bg-[#16171B] border border-white/10 rounded-xl p-1 shadow-xl gap-1 print:hidden">
           <button
             onClick={() => setZoom(z => Math.min(3.0, z + 0.15))}
-            className="p-2 rounded-lg hover:bg-vault-panel text-slate-300 hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Zoom In (+)"
           >
             <Plus className="w-4 h-4" />
           </button>
-          <div className="w-4 h-[1px] bg-vault-border/60" />
+          <div className="w-4 h-[1px] bg-white/10" />
           <button
             onClick={() => setZoom(z => Math.max(0.3, z - 0.15))}
-            className="p-2 rounded-lg hover:bg-vault-panel text-slate-300 hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Zoom Out (-)"
           >
             <Minus className="w-4 h-4" />
           </button>
-          <div className="w-4 h-[1px] bg-vault-border/60" />
+          <div className="w-4 h-[1px] bg-white/10" />
           <button
             onClick={handleResetView}
-            className="p-2 rounded-lg hover:bg-vault-panel text-slate-300 hover:text-white transition-colors"
+            className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white transition-colors cursor-pointer"
             title="Reset Zoom & Position"
           >
             <Square className="w-3.5 h-3.5 stroke-[2.2]" />
@@ -292,20 +291,22 @@ export const ArchitectureStudio = ({
 
         {/* Diagram SVG Output */}
         {symbols.length === 0 ? (
-          <div className="p-8 max-w-md bg-[#091020]/90 backdrop-blur-md border border-vault-border/70 rounded-2xl text-center shadow-2xl flex flex-col items-center">
-            <Layers className="w-12 h-12 text-cyan-400 opacity-60 mb-3" />
-            <h3 className="text-sm font-bold text-white mb-1">No Codebase Repository Selected</h3>
+          <div className="p-8 max-w-md bg-white/[0.02] backdrop-blur-xl border border-white/5 rounded-2xl text-center shadow-2xl flex flex-col items-center">
+            <div className="w-12 h-12 rounded-2xl bg-white/[0.02] border border-white/5 flex items-center justify-center mb-3">
+              <Layers className="w-6 h-6 text-sky-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-white mb-1">No Codebase Repository Selected</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Select a repository folder from the top bar or left sidebar to parse its live AST syntax tree and render its real system architecture, components, and data flow.
+              Select a project from the left sidebar to parse live AST syntax and render its system architecture, components, and data flow.
             </p>
           </div>
         ) : renderError ? (
-          <div className="p-6 bg-red-950/60 border border-red-500/40 rounded-xl text-center max-w-md">
-            <h4 className="text-sm font-bold text-red-300 mb-2">Diagram Rendering Error</h4>
+          <div className="p-6 bg-red-950/40 border border-red-500/30 rounded-2xl text-center max-w-md">
+            <h4 className="text-sm font-semibold text-red-300 mb-2">Diagram Rendering Error</h4>
             <p className="text-xs text-red-200 font-mono mb-4">{renderError}</p>
             <button
               onClick={() => onViewChange('system')}
-              className="px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white rounded text-xs font-medium"
+              className="px-3 py-1.5 bg-red-800 hover:bg-red-700 text-white rounded-lg text-xs font-medium cursor-pointer"
             >
               Reset to System View
             </button>
@@ -324,19 +325,19 @@ export const ArchitectureStudio = ({
         )}
       </div>
 
-      {/* Bottom AST Node Citations Drawer / Inspector Shelf */}
-      <div className="border-t border-vault-border/60 bg-[#080d1b]/95 backdrop-blur-md p-3 z-10 print:hidden">
+      {/* 3. Flush Bottom AST Node Citations Drawer / Inspector Shelf */}
+      <div className="border-t border-white/[0.04] bg-[#131316] px-6 py-3 z-10 print:hidden">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
-            <Layers className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-300">
+            <Layers className="w-3.5 h-3.5 text-slate-400" />
+            <span className="text-xs font-medium text-slate-300">
               Interactive Component Graph & Citations
             </span>
             <span className="text-[10px] text-slate-500">
               (Click any node to link with RAG Context Inspector)
             </span>
           </div>
-          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+          <span className="text-[10px] font-mono text-slate-300 bg-white/[0.04] px-2.5 py-0.5 rounded-lg border border-white/10">
             {model.nodes.length} Ingested Components
           </span>
         </div>
@@ -354,19 +355,19 @@ export const ArchitectureStudio = ({
                 <button
                   key={node.id}
                   onClick={() => handleNodeClick(node)}
-                  className={`flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${
+                  className={`flex-shrink-0 flex items-center gap-2 px-2.5 py-1.5 rounded-xl border text-left transition-all cursor-pointer ${
                     isSelected
-                      ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-[0_0_10px_rgba(6,182,212,0.3)] font-semibold'
-                      : 'bg-vault-card/70 border-vault-border hover:border-slate-400 text-slate-300 hover:text-white'
+                      ? 'bg-white/10 border-white/20 text-white shadow-sm font-medium'
+                      : 'bg-white/[0.02] border-white/5 hover:border-white/15 text-slate-300 hover:text-white'
                   }`}
                 >
-                  <div className="p-1 rounded bg-slate-900 border border-slate-700">
+                  <div className="p-1 rounded-lg bg-black/40 border border-white/10">
                     {node.type === 'database' ? (
                       <Cpu className="w-3 h-3 text-emerald-400" />
                     ) : node.type === 'security' ? (
                       <ShieldCheck className="w-3 h-3 text-purple-400" />
                     ) : (
-                      <FileCode className="w-3 h-3 text-cyan-400" />
+                      <FileCode className="w-3 h-3 text-sky-400" />
                     )}
                   </div>
                   <div className="flex flex-col">
