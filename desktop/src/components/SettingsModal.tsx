@@ -1781,10 +1781,10 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                         <p className="text-[11px] text-slate-400">Local Loopback Bridge: <span className="font-mono text-slate-300">ws://127.0.0.1:45812</span></p>
                       </div>
                     </div>
-                    <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      Listening
-                    </span>
+                    <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium select-none">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      <span>Listening</span>
+                    </div>
                   </div>
                 </div>
               </div>
