@@ -6,6 +6,7 @@ import {
   GitPullRequest, 
   Layers, 
   Folder, 
+  FolderOpen,
   HelpCircle,
   Plus,
   ExternalLink,
@@ -53,7 +54,7 @@ interface ActivityDockProps {
   activeTab: ActivityTab;
   onTabChange: (tab: ActivityTab) => void;
   activeProject?: string;
-  projects?: { id: string; name: string }[];
+  projects?: { id: string; name: string; path?: string }[];
   activeSessionId?: string | null;
   onSelectSession?: (sessionId: string) => void;
   onSelectProject?: (project: string) => void;
@@ -66,11 +67,8 @@ interface ActivityDockProps {
 export const ActivityDock = ({
   activeTab,
   onTabChange,
-  activeProject = 'DATADUKAN_PRO',
-  projects = [
-    { id: 'DATADUKAN_PRO', name: 'DATADUKAN_PRO' },
-    { id: 'EVO_RETAIL', name: 'EVO_RETAIL' }
-  ],
+  activeProject = '',
+  projects = [],
   activeSessionId: propActiveSessionId,
   onSelectSession,
   onSelectProject,
@@ -84,6 +82,9 @@ export const ActivityDock = ({
   const [sessions, setSessions] = useState<ChatSession[]>(() => getStoredChatSessions());
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
     return propActiveSessionId !== undefined ? propActiveSessionId : getStoredActiveSessionId();
+  });
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => {
+    return new Set(activeProject ? [activeProject] : []);
   });
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -357,29 +358,49 @@ export const ActivityDock = ({
               projects.map(proj => {
                 const projectSessions = sessions.filter(s => s.projectId === proj.id && !s.isArchived);
                 const isProjectSelected = activeProject === proj.id;
+                const isExpanded = expandedProjects.has(proj.id);
 
                 return (
                   <div key={proj.id} className="space-y-0.5">
                     {/* Project Folder Row */}
                     <button
                       type="button"
-                      onClick={() => onSelectProject?.(proj.id)}
-                      className={`w-full px-2 py-1 rounded-md flex items-center gap-2 text-left transition-colors cursor-pointer group ${
-                        isProjectSelected ? 'text-sky-300 bg-sky-950/30' : 'text-slate-400 hover:text-white'
+                      onClick={() => {
+                        setExpandedProjects(prev => {
+                          const next = new Set(prev);
+                          if (next.has(proj.id)) {
+                            next.delete(proj.id);
+                          } else {
+                            next.add(proj.id);
+                          }
+                          return next;
+                        });
+                        onSelectProject?.(proj.id);
+                      }}
+                      className={`w-full px-2 py-1.5 rounded-lg flex items-center gap-2 text-left transition-all cursor-pointer group select-none ${
+                        isProjectSelected 
+                          ? 'text-white bg-white/[0.08] font-medium shadow-sm' 
+                          : 'text-slate-400 hover:text-white hover:bg-white/[0.04]'
                       }`}
                     >
-                      <Folder className={`w-3.5 h-3.5 ${isProjectSelected ? 'text-sky-400' : 'text-slate-500 group-hover:text-sky-400'}`} />
-                      <span className="truncate text-xs font-mono group-hover:text-slate-200">{proj.name}</span>
+                      {isExpanded ? (
+                        <FolderOpen className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isProjectSelected ? 'text-sky-400' : 'text-slate-400 group-hover:text-sky-400'}`} />
+                      ) : (
+                        <Folder className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${isProjectSelected ? 'text-sky-400' : 'text-slate-400 group-hover:text-sky-400'}`} />
+                      )}
+                      <span className="truncate text-xs font-mono flex-1 group-hover:text-slate-200">{proj.name}</span>
+                      
+                      {/* Task / Chat Count Badge */}
                       {projectSessions.length > 0 && (
-                        <span className="ml-auto text-[10px] text-slate-500 font-mono">
+                        <span className="text-[10px] text-slate-500 font-mono px-1.5 py-0.2 rounded bg-black/30 border border-white/5">
                           {projectSessions.length}
                         </span>
                       )}
                     </button>
 
-                    {/* Nested Chats Assigned to this Project */}
-                    {projectSessions.length > 0 && (
-                      <div className="space-y-0.5">
+                    {/* Nested Chats Assigned to this Project (Collapsible / Shrinkable) */}
+                    {isExpanded && projectSessions.length > 0 && (
+                      <div className="space-y-0.5 pl-2 border-l border-white/[0.06] ml-3.5 my-1 animate-fadeIn">
                         {projectSessions.map(session => {
                           const isActive = activeTab === 'chat' && activeSessionId === session.id;
 
@@ -391,7 +412,7 @@ export const ActivityDock = ({
                                   e.preventDefault();
                                   handleCommitRename(session.id);
                                 }}
-                                className="w-full pl-6 pr-2 py-0.5"
+                                className="w-full pl-4 pr-2 py-0.5"
                                 onClick={(e) => e.stopPropagation()}
                               >
                                 <input
@@ -432,7 +453,7 @@ export const ActivityDock = ({
                                   project: proj
                                 });
                               }}
-                              className={`w-full pl-6 pr-2 py-1.5 rounded-lg text-left transition-colors cursor-pointer text-xs flex items-center justify-between group ${
+                              className={`w-full pl-4 pr-2 py-1 rounded-md text-left transition-all cursor-pointer text-xs flex items-center justify-between group ${
                                 isActive 
                                   ? 'bg-white/10 text-white font-medium shadow-sm' 
                                   : 'text-slate-400 hover:text-white hover:bg-white/5'

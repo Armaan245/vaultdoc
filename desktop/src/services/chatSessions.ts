@@ -20,8 +20,61 @@ export interface ChatSession {
   messages: ChatMessage[];
 }
 
+export interface WorkspaceProject {
+  id: string;
+  name: string;
+  path?: string;
+}
+
 const SESSIONS_STORAGE_KEY = 'vaultdoc_chat_sessions';
 const ACTIVE_SESSION_KEY = 'vaultdoc_active_session_id';
+const PROJECTS_STORAGE_KEY = 'vaultdoc_workspace_projects';
+const ACTIVE_PROJECT_KEY = 'vaultdoc_active_project_id';
+
+export function getStoredProjects(): WorkspaceProject[] {
+  try {
+    const raw = localStorage.getItem(PROJECTS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((p: WorkspaceProject) => p && p.id !== 'DATADUKAN_PRO' && p.id !== 'EVO_RETAIL');
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredProjects(projects: WorkspaceProject[]) {
+  try {
+    const filtered = projects.filter(p => p.id !== 'DATADUKAN_PRO' && p.id !== 'EVO_RETAIL');
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(filtered));
+    window.dispatchEvent(new Event('vaultdoc_projects_change'));
+  } catch (err) {
+    console.error('Failed to save projects', err);
+  }
+}
+
+export function getStoredActiveProject(): string {
+  try {
+    const raw = localStorage.getItem(ACTIVE_PROJECT_KEY);
+    if (raw === 'DATADUKAN_PRO' || raw === 'EVO_RETAIL') return '';
+    return raw || '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveStoredActiveProject(projectId: string) {
+  try {
+    if (projectId && projectId !== 'DATADUKAN_PRO' && projectId !== 'EVO_RETAIL') {
+      localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+    } else {
+      localStorage.removeItem(ACTIVE_PROJECT_KEY);
+    }
+    window.dispatchEvent(new Event('vaultdoc_projects_change'));
+  } catch (err) {
+    console.error('Failed to save active project', err);
+  }
+}
 
 export function getStoredChatSessions(): ChatSession[] {
   try {
@@ -30,8 +83,13 @@ export function getStoredChatSessions(): ChatSession[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     
-    // Sanitize any legacy copied strings
+    // Sanitize any legacy copied strings or dummy project associations
     return parsed.map((s: ChatSession, idx: number) => {
+      let updatedProjectId = s.projectId;
+      if (updatedProjectId === 'DATADUKAN_PRO' || updatedProjectId === 'EVO_RETAIL') {
+        updatedProjectId = '';
+      }
+
       if (s.title && s.title.toLowerCase().startsWith('respond to greeting')) {
         const fallbackTitles = [
           'AST Workspace Overview',
@@ -41,10 +99,14 @@ export function getStoredChatSessions(): ChatSession[] {
         ];
         return {
           ...s,
+          projectId: updatedProjectId,
           title: fallbackTitles[idx % fallbackTitles.length]
         };
       }
-      return s;
+      return {
+        ...s,
+        projectId: updatedProjectId
+      };
     });
   } catch {
     return [];

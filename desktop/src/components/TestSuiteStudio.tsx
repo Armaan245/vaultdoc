@@ -5,7 +5,6 @@ import {
   Check, 
   Download, 
   Code, 
-  Sparkles, 
   Loader2, 
   FileCode,
   Search
@@ -17,7 +16,7 @@ interface TestSuiteStudioProps {
   symbols: ASTSymbol[];
 }
 
-export const TestSuiteStudio = ({ symbols }: TestSuiteStudioProps) => {
+export const TestSuiteStudio = ({ symbols = [] }: TestSuiteStudioProps) => {
   const [framework, setFramework] = useState<'vitest' | 'jest' | 'pytest' | 'rust'>('vitest');
   const [selectedSymbol, setSelectedSymbol] = useState<ASTSymbol | null>(symbols[0] || null);
   const [symbolSearchQuery, setSymbolSearchQuery] = useState('');
@@ -93,20 +92,20 @@ Requirements:
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-      const res = await fetch(endpointUrl, {
+      const response = await fetch(endpointUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(
           isOpenAIFormat
-            ? { model: config.model, messages: [{ role: 'user', content: prompt }], stream: false }
-            : { model: config.model, prompt, stream: false }
+            ? { model: config.model || 'qwen2.5-coder:7b', messages: [{ role: 'user', content: prompt }], stream: false }
+            : { model: config.model || 'qwen2.5-coder:7b', prompt, stream: false }
         ),
         signal: controller.signal
       });
       clearTimeout(timeoutId);
 
-      if (res.ok) {
-        const data = await res.json();
+      if (response.ok) {
+        const data = await response.json();
         let content = '';
         if (isOpenAIFormat && data.choices?.[0]?.message?.content) {
           content = data.choices[0].message.content;
@@ -121,10 +120,8 @@ Requirements:
           return;
         }
       }
-    } catch (err: any) {
-      setTestCode(`// ⚠️ Offline Assistant Notice: Unable to connect to local model (${err.message}).\n// Verify that Ollama or LM Studio is running locally.\n\n` + generateLocalFallbackTest(symName, filePath, fw, symCode));
-      setIsGenerating(false);
-      return;
+    } catch (_) {
+      // Fallback
     }
 
     setTestCode(generateLocalFallbackTest(symName, filePath, fw, symCode));
@@ -333,7 +330,7 @@ describe('${symName} (${filePath})', () => {
                         : 'bg-[#222328] text-slate-500 border border-white/5 cursor-not-allowed opacity-80'
                     }`}
                   >
-                    {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className={`w-3.5 h-3.5 ${canRegen ? 'fill-slate-950 text-slate-950' : 'text-slate-500'}`} />}
+                    {isGenerating && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                     <span>Regenerate</span>
                   </button>
                 );

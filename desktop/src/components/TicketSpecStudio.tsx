@@ -17,18 +17,6 @@ interface TicketSpecStudioProps {
   onExportToDocs?: (specMarkdown: string) => void;
 }
 
-const SAMPLE_JIRA_TICKET = `[PROD-4092] Implement Secure Webhook Verification & Invoice Settlement Flow
-
-Description:
-As a backend developer, we need to ingest incoming webhook payloads from our payment gateway provider (Stripe / Adyen).
-When an invoice is paid (event: invoice.paid), the service must verify the incoming cryptographic signature before triggering the internal settlement ledger.
-
-Acceptance Criteria:
-1. Parse raw webhook payload and verify HMAC SHA-256 signature header.
-2. If signature fails, return HTTP 403 Forbidden immediately without modifying account state.
-3. If signature passes, dispatch settlement job to user ledger and respond with HTTP 200 { status: 'acknowledged' }.
-4. Ensure all database writes are wrapped in ACID transactions.`;
-
 export const TicketSpecStudio = ({
   symbols,
   onExportToDocs
@@ -111,12 +99,6 @@ export const TicketSpecStudio = ({
             <span className="text-xs font-semibold text-slate-300">
               Input Ticket (Jira / Linear / User Story)
             </span>
-            <button
-              onClick={() => setTicketInput(SAMPLE_JIRA_TICKET)}
-              className="text-[11px] font-mono text-sky-400 hover:text-sky-300 transition-colors cursor-pointer"
-            >
-              Load Sample Ticket
-            </button>
           </div>
 
           {/* Glass Card Container for Textarea */}

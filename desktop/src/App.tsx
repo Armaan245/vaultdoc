@@ -18,6 +18,12 @@ import { parseRepository, generateDocumentation } from './services/vaultdoc';
 import type { ASTSymbol, RAGChunk } from './services/vaultdoc';
 import { getStoredTheme, applyTheme, type Theme } from './services/theme';
 import { getStoredProviderConfig, isLocalEndpoint } from './services/ai';
+import { 
+  getStoredProjects, 
+  saveStoredProjects, 
+  getStoredActiveProject, 
+  saveStoredActiveProject 
+} from './services/chatSessions';
 import type { ArchitectureViewMode } from './services/architecture';
 
 import Titlebar from './components/Titlebar';
@@ -32,11 +38,8 @@ function App() {
   const [isCreateProjectModalOpen, setIsCreateProjectModalOpen] = useState(false);
 
   // Active Workspace / Project State
-  const [activeProject, setActiveProject] = useState<string>('DATADUKAN_PRO');
-  const [projects, setProjects] = useState<{ id: string; name: string; path?: string }[]>([
-    { id: 'DATADUKAN_PRO', name: 'DATADUKAN_PRO' },
-    { id: 'EVO_RETAIL', name: 'EVO_RETAIL' }
-  ]);
+  const [activeProject, setActiveProject] = useState<string>(getStoredActiveProject);
+  const [projects, setProjects] = useState<{ id: string; name: string; path?: string }[]>(getStoredProjects);
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
   const [symbols, setSymbols] = useState<ASTSymbol[]>([]);
   const [fileTree, setFileTree] = useState<Set<string>>(new Set());
@@ -90,80 +93,50 @@ function App() {
       setActiveMode(isLocalEndpoint(config.baseUrl) ? 1 : 2);
     };
 
+    const handleProjectsSync = () => {
+      setProjects(getStoredProjects());
+      setActiveProject(getStoredActiveProject());
+    };
+
     window.addEventListener('storage', handleSync);
     window.addEventListener('vaultdoc_theme_change', handleSync);
     window.addEventListener('vaultdoc_config_change', handleConfigSync);
+    window.addEventListener('vaultdoc_projects_change', handleProjectsSync);
 
-    // Initial load of AST symbols from local repository or fallback ast
-    loadWorkspaceAST('DATADUKAN_PRO');
+    // Initial load of AST symbols if a real project is active
+    const curActive = getStoredActiveProject();
+    if (curActive) {
+      loadWorkspaceAST(curActive);
+    }
 
     return () => {
       window.removeEventListener('storage', handleSync);
       window.removeEventListener('vaultdoc_theme_change', handleSync);
       window.removeEventListener('vaultdoc_config_change', handleConfigSync);
+      window.removeEventListener('vaultdoc_projects_change', handleProjectsSync);
     };
   }, []);
 
   const loadWorkspaceAST = async (projectName: string) => {
     try {
-      // Mock / fallback AST symbol dataset for instantaneous rich indexing
-      const fallbackSymbols: ASTSymbol[] = [
-        {
-          symbol: 'initParser',
-          type: 'function',
-          code: 'async function initParser() {\n  if (parserReady) return;\n  await Parser.init();\n  const wasmDir = path.join(__dirname, "tree-sitter-wasms");\n  // load web-tree-sitter parser\n}',
-          filePath: 'src/parser.ts',
-          startLine: 20,
-          endLine: 40
-        },
-        {
-          symbol: 'parseFile',
-          type: 'function',
-          code: 'export function parseFile(filePath: string): ExtractedSymbol[] {\n  const parser = new Parser();\n  const tree = parser.parse(input);\n  return symbols;\n}',
-          filePath: 'src/parser.ts',
-          startLine: 42,
-          endLine: 120
-        },
-        {
-          symbol: 'scanDirectory',
-          type: 'function',
-          code: 'export async function scanDirectory(dir: string): Promise<string[]> {\n  // Scan source files recursively filtering gitignore\n  return validFiles;\n}',
-          filePath: 'src/scanner.ts',
-          startLine: 12,
-          endLine: 65
-        },
-        {
-          symbol: 'lanceDb',
-          type: 'interface',
-          code: 'export const lanceDb = {\n  async search(query: string, options: { symbols?: ASTSymbol[]; limit?: number }): Promise<RAGChunk[]> {\n    // 512-dim embedding cosine similarity query\n  }\n};',
-          filePath: 'src/services/vaultdoc.ts',
-          startLine: 66,
-          endLine: 146
-        },
-        {
-          symbol: 'AuthMiddleware',
-          type: 'class',
-          code: 'export class AuthMiddleware {\n  validateToken(req: Request, res: Response, next: NextFunction) {\n    // Air-gapped JWT validation with SHA-256 signatures\n  }\n}',
-          filePath: 'src/middleware/auth.ts',
-          startLine: 15,
-          endLine: 55
-        },
-        {
-          symbol: 'OrderRouter',
-          type: 'class',
-          code: 'export class OrderRouter {\n  registerRoutes(app: Express) {\n    app.post("/api/orders/checkout", this.handleCheckout);\n  }\n}',
-          filePath: 'src/routes/orders.ts',
-          startLine: 10,
-          endLine: 45
-        }
-      ];
-
-      setSymbols(fallbackSymbols);
-      const paths = new Set(fallbackSymbols.map(s => s.filePath));
-      setFileTree(paths);
-      setEngineStatus(`Loaded ${fallbackSymbols.length} AST symbols for ${projectName}`);
+      const existingProj = projects.find(p => p.id === projectName || p.name === projectName);
+      const targetPath = existingProj?.path || selectedRepo;
+      if (targetPath) {
+        setIsLoading(true);
+        const parsedSymbols = await parseRepository(targetPath);
+        setSymbols(parsedSymbols);
+        setFileTree(new Set(parsedSymbols.map(s => s.filePath)));
+        setEngineStatus(`Loaded ${parsedSymbols.length} AST symbols for ${projectName}`);
+        setIsLoading(false);
+        return;
+      }
+      setSymbols([]);
+      setFileTree(new Set());
+      setEngineStatus(`Workspace ${projectName} ready.`);
     } catch (err: any) {
-      console.warn('Could not load fallback AST symbols:', err);
+      setSymbols([]);
+      setFileTree(new Set());
+      console.warn('Could not load AST symbols:', err);
     }
   };
 
@@ -188,10 +161,11 @@ function App() {
 
   const handleCreateProject = async (projectName: string, folderPath?: string) => {
     const newProj = { id: projectName, name: projectName, path: folderPath };
-    setProjects(prev => {
-      if (prev.some(p => p.id === projectName)) return prev;
-      return [...prev, newProj];
-    });
+    const curProjects = getStoredProjects();
+    const updated = curProjects.some(p => p.id === projectName) ? curProjects : [...curProjects, newProj];
+    saveStoredProjects(updated);
+    saveStoredActiveProject(projectName);
+    setProjects(updated);
     setActiveProject(projectName);
 
     if (folderPath) {
@@ -217,12 +191,18 @@ function App() {
   };
 
   const handleSelectWorkspaceProject = (projectName: string) => {
+    saveStoredActiveProject(projectName);
     setActiveProject(projectName);
     const existingProj = projects.find(p => p.id === projectName);
     if (existingProj?.path) {
       setSelectedRepo(existingProj.path);
     }
-    loadWorkspaceAST(projectName);
+    if (projectName) {
+      loadWorkspaceAST(projectName);
+    } else {
+      setSymbols([]);
+      setFileTree(new Set());
+    }
   };
 
   const handleGenerate = async (prompt: string) => {

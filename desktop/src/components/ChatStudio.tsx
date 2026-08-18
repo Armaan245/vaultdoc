@@ -20,20 +20,14 @@ import {
   Cpu,
   Pin,
   Edit2,
-  Archive,
   Trash2,
   FileText,
   Globe,
-  FilePlus2,
-  Layers,
   FlaskConical,
-  LayoutTemplate,
+  Compass,
   X,
   Search,
   Clock,
-  Hammer,
-  RefreshCw,
-  Megaphone,
   Terminal,
   GitFork,
   Laptop,
@@ -55,8 +49,6 @@ import {
   generateSessionTitle,
   renameChatSession,
   togglePinChatSession,
-  archiveChatSession,
-  moveChatSessionToProject,
   deleteChatSession
 } from '../services/chatSessions';
 
@@ -195,10 +187,10 @@ The **${proj}** codebase utilizes a modular architecture with zero external clou
 
 \`\`\`mermaid
 graph TD
-    Client["Client / UI Layer"] --> Router["API & Routing Middleware"]
+    Client["Client / Ingress Layer"] --> Router["API & Routing Middleware"]
     Router --> Services["Business Logic & Service Handlers"]
     Services --> VectorDB["LanceDB AST Vector Storage"]
-    Services --> DB["Local Persistence & SQLite / NVMe"]
+    Services --> DB["Local Persistence & NVMe Store"]
 \`\`\`
 
 ## 2. Ingested AST Symbols & Modules
@@ -310,16 +302,13 @@ Your codebase is fully indexed and ready for documentation generation, architect
 
 export const ChatStudio = ({ 
   symbols = [], 
-  activeProject = 'DATADUKAN_PRO',
-  projects = [
-    { id: 'DATADUKAN_PRO', name: 'DATADUKAN_PRO' },
-    { id: 'EVO_RETAIL', name: 'EVO_RETAIL' }
-  ],
+  activeProject = '',
+  projects = [],
   activeSessionId: propActiveSessionId,
   onSelectSessionId,
   onSelectProject,
   onSelectProjectName,
-  onNavigateTab,
+  onNavigateTab: _onNavigateTab,
   onSelectCitation 
 }: ChatStudioProps) => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
@@ -360,10 +349,8 @@ export const ChatStudio = ({
   // Top header popovers & modes
   const [isSessionMenuOpen, setIsSessionMenuOpen] = useState(false);
   const [isOutputsMenuOpen, setIsOutputsMenuOpen] = useState(false);
-  const [isTemplatesDrawerOpen, setIsTemplatesDrawerOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameInput, setRenameInput] = useState('');
-  const [showProjectSubmenu, setShowProjectSubmenu] = useState(false);
   const [copiedToast, setCopiedToast] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -416,45 +403,11 @@ export const ChatStudio = ({
     'llama3.3:70b'
   ];
 
-  const availableProjects = ['DATADUKAN_PRO', 'EVO_RETAIL'];
-
-  const templatesList = [
-    {
-      id: 'brief',
-      title: 'Architecture Brief',
-      icon: '📄',
-      desc: 'High-level system topology, routing, and database dataflow.',
-      prompt: 'Generate an architecture brief mapping the high-level services, routing middleware, and database dataflow.'
-    },
-    {
-      id: 'api',
-      title: 'API Endpoint Spec',
-      icon: '📝',
-      desc: 'Document HTTP endpoints, request payloads, and response types.',
-      prompt: 'Document all active HTTP API endpoints, request validation payloads, and response status codes.'
-    },
-    {
-      id: 'audit',
-      title: 'Pre-PR Security Audit',
-      icon: '🔍',
-      desc: 'Shift-left security checks, auth flaw validation, and logic diffs.',
-      prompt: 'Perform a shift-left security and logic review on working diffs, checking for unhandled errors or insecure routes.'
-    },
-    {
-      id: 'tests',
-      title: 'Unit Test Suite',
-      icon: '🧪',
-      desc: 'Synthesize Vitest / PyTest test cases for critical functions.',
-      prompt: 'Generate a robust Vitest test suite with edge-case coverage for active functions.'
-    }
-  ];
-
   // Click outside to close menus
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (sessionMenuRef.current && !sessionMenuRef.current.contains(e.target as Node)) {
         setIsSessionMenuOpen(false);
-        setShowProjectSubmenu(false);
       }
       if (outputsMenuRef.current && !outputsMenuRef.current.contains(e.target as Node)) {
         setIsOutputsMenuOpen(false);
@@ -549,38 +502,10 @@ export const ChatStudio = ({
     }));
   };
 
-  const triggerIntent = (intent: 'explore' | 'feature' | 'audit' | 'fix' | 'spec' | 'tests') => {
-    switch (intent) {
-      case 'explore':
-        if (onNavigateTab) {
-          onNavigateTab('architecture');
-        } else {
-          handleSendQuery('Explore and understand codebase architecture, data flow, routers, and schemas.');
-        }
-        break;
-      case 'feature':
-      case 'spec':
-        if (onNavigateTab) {
-          onNavigateTab('spec');
-        } else {
-          handleSendQuery('Build a new feature, app, or tool grounded in codebase AST symbols.');
-        }
-        break;
-      case 'audit':
-        if (onNavigateTab) {
-          onNavigateTab('audit');
-        } else {
-          handleSendQuery('Review code, uncommitted working diffs, and suggest architectural improvements.');
-        }
-        break;
-      case 'fix':
-      case 'tests':
-        if (onNavigateTab) {
-          onNavigateTab('tests');
-        } else {
-          handleSendQuery('Fix issues and failures, debug stack traces, and generate test suites.');
-        }
-        break;
+  const handlePopulatePrompt = (promptText: string) => {
+    setInput(promptText);
+    if (textareaRef.current) {
+      textareaRef.current.focus();
     }
   };
 
@@ -776,11 +701,15 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
         throw new Error('Empty response from model');
       }
 
-      const elapsedSec = (Math.max(200, Date.now() - startTime) / 1000).toFixed(1);
-      updateCurrentSessionMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, thinkingDuration: `AST Grounded in ${elapsedSec}s` } : m));
+      const durationMs = Date.now() - startTime;
+      const modelLabel = currentModel || 'qwen2.5-coder:7b';
+      const metricsHeader = `${modelLabel} • ${durationMs} ms • 0 bytes egress`;
+      updateCurrentSessionMessages(prev => prev.map(m => m.id === assistantMsgId ? { ...m, thinkingDuration: metricsHeader } : m));
 
     } catch (err: any) {
-      const elapsedSec = (Math.max(200, Date.now() - startTime) / 1000).toFixed(1);
+      const durationMs = Date.now() - startTime;
+      const modelLabel = currentModel || 'qwen2.5-coder:7b';
+      const metricsHeader = `${modelLabel} • ${durationMs} ms • 0 bytes egress`;
       
       // Intelligent offline AST synthesizer tailored to specific prompt intent
       const synthesizedResponse = generateIntelligentASTResponse(textToSend, effectiveProject, symbols, citations);
@@ -788,7 +717,7 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
       updateCurrentSessionMessages(prev => prev.map(m => m.id === assistantMsgId ? {
         ...m,
         content: synthesizedResponse,
-        thinkingDuration: `AST Grounded in ${elapsedSec}s`
+        thinkingDuration: metricsHeader
       } : m));
     } finally {
       setIsStreaming(false);
@@ -819,13 +748,6 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
     setIsRenaming(false);
   };
 
-  const handleArchive = () => {
-    if (!activeSessionId) return;
-    archiveChatSession(activeSessionId);
-    handleNewSession();
-    setIsSessionMenuOpen(false);
-  };
-
   const handleDelete = () => {
     if (!activeSessionId) return;
     deleteChatSession(activeSessionId);
@@ -833,17 +755,72 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
     setIsSessionMenuOpen(false);
   };
 
-  const handleMoveProject = (proj: string) => {
-    if (!activeSessionId) {
-      setSessionProjectId(proj);
-      setShowProjectSubmenu(false);
-      setIsSessionMenuOpen(false);
-      return;
-    }
-    moveChatSessionToProject(activeSessionId, proj);
-    setSessionProjectId(proj);
-    setShowProjectSubmenu(false);
+  const handleExportPdf = () => {
     setIsSessionMenuOpen(false);
+    window.print();
+  };
+
+  const handleExportMarkdown = () => {
+    if (messages.length === 0) return;
+    const mdContent = `# ${sessionTitle || 'Chat Transcript'}\nProject: ${sessionProjectId || activeProject || 'General'}\nDate: ${new Date().toLocaleString()}\n\n` +
+      messages.map(m => `## ${m.role === 'user' ? 'User' : 'VaultDoc Agent'} (${m.timestamp})\n\n${m.content}`).join('\n\n---\n\n');
+    const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeTitle = (sessionTitle || 'transcript').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    a.download = `${safeTitle}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIsSessionMenuOpen(false);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2000);
+  };
+
+  const handleExportHtml = () => {
+    if (messages.length === 0) return;
+    const bodyContent = messages.map(m => `
+      <div class="message ${m.role}">
+        <div class="meta">${m.role === 'user' ? '👤 User' : '🤖 VaultDoc Agent'} • ${m.timestamp}</div>
+        <div class="content">${m.content.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br/>')}</div>
+      </div>
+    `).join('\n');
+    
+    const htmlDoc = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${sessionTitle || 'VaultDoc Chat Session'}</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0e0e11; color: #e2e8f0; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+    h1 { font-size: 20px; border-bottom: 1px solid #27272a; padding-bottom: 12px; margin-bottom: 24px; color: #fff; }
+    .message { margin-bottom: 24px; padding: 16px 20px; border-radius: 12px; }
+    .message.user { background: #18181b; border: 1px solid #27272a; }
+    .message.assistant { background: #131316; border: 1px solid #3f3f46; }
+    .meta { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #a1a1aa; margin-bottom: 8px; font-family: monospace; }
+    .content { font-size: 14px; white-space: pre-wrap; word-break: break-word; }
+  </style>
+</head>
+<body>
+  <h1>${sessionTitle || 'VaultDoc Chat Session'}</h1>
+  ${bodyContent}
+</body>
+</html>`;
+    const blob = new Blob([htmlDoc], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const safeTitle = (sessionTitle || 'transcript').toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    a.download = `${safeTitle}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIsSessionMenuOpen(false);
+    setCopiedToast(true);
+    setTimeout(() => setCopiedToast(false), 2000);
   };
 
   const handleCopyTranscript = () => {
@@ -854,44 +831,6 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
     setCopiedToast(true);
     setTimeout(() => setCopiedToast(false), 2000);
     setIsSessionMenuOpen(false);
-  };
-
-  const handleSelectTemplate = (templatePrompt: string) => {
-    setInput(templatePrompt);
-    setIsTemplatesDrawerOpen(false);
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  };
-
-  const handleCreateOutput = (type: 'doc' | 'architecture' | 'tests' | 'site') => {
-    setIsOutputsMenuOpen(false);
-    switch (type) {
-      case 'doc':
-        if (onNavigateTab) {
-          onNavigateTab('spec');
-        } else {
-          handleSendQuery('Synthesize a complete technical specification from codebase AST symbols.');
-        }
-        break;
-      case 'architecture':
-        if (onNavigateTab) {
-          onNavigateTab('architecture');
-        } else {
-          handleSendQuery('Generate high-level architecture diagram and schema relationship map.');
-        }
-        break;
-      case 'tests':
-        if (onNavigateTab) {
-          onNavigateTab('tests');
-        } else {
-          handleSendQuery('Synthesize unit and integration test suite for active repository symbols.');
-        }
-        break;
-      case 'site':
-        handleSendQuery('Generate an interactive single-file HTML & Tailwind documentation web viewer for this repository.');
-        break;
-    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -1019,81 +958,46 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
                   <kbd className="text-[10px] font-mono text-slate-500">Ctrl+Alt+R</kbd>
                 </button>
 
-                {/* Move to Project Submenu */}
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowProjectSubmenu(prev => !prev)}
-                    className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Folder size={13} className="text-slate-400" />
-                      <span>Move to project</span>
-                    </div>
-                    <ChevronRight size={13} className="text-slate-500 group-hover:text-slate-300" />
-                  </button>
+                <div className="border-t border-white/[0.06] my-1" />
 
-                  {showProjectSubmenu && (
-                    <div className="absolute left-full top-0 ml-1 w-48 bg-[#1e1e24] border border-white/10 rounded-xl shadow-2xl p-1 z-50 animate-fadeIn">
-                      <div className="text-[10px] uppercase font-bold text-slate-500 px-2 py-1 tracking-wider">
-                        Assign Project
-                      </div>
-                      {availableProjects.map(proj => (
-                        <button
-                          key={proj}
-                          type="button"
-                          onClick={() => handleMoveProject(proj)}
-                          className={`w-full text-left px-2 py-1.5 rounded transition-colors text-xs flex items-center justify-between cursor-pointer font-mono ${
-                            sessionProjectId === proj ? 'bg-white/10 text-white font-medium' : 'hover:bg-white/5 text-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-1.5 truncate">
-                            <Folder size={12} className={sessionProjectId === proj ? "text-sky-400" : "text-slate-500"} />
-                            <span className="truncate">{proj}</span>
-                          </div>
-                          {sessionProjectId === proj && <Check size={12} className="text-sky-400" />}
-                        </button>
-                      ))}
-                      {sessionProjectId && (
-                        <>
-                          <div className="border-t border-white/5 my-1" />
-                          <button
-                            type="button"
-                            onClick={() => handleMoveProject('')}
-                            className="w-full text-left px-2 py-1.5 rounded hover:bg-rose-500/10 text-xs text-slate-400 hover:text-rose-300 flex items-center gap-1.5 cursor-pointer font-mono"
-                          >
-                            <X size={12} className="text-rose-400" />
-                            <span>Move to Recents (None)</span>
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Archive Chat */}
+                {/* Export to PDF */}
                 <button
                   type="button"
-                  onClick={handleArchive}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
+                  onClick={handleExportPdf}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
                 >
-                  <div className="flex items-center gap-2">
-                    <Archive size={13} className="text-slate-400" />
-                    <span>Archive chat</span>
-                  </div>
-                  <kbd className="text-[10px] font-mono text-slate-500">Ctrl+Shift+A</kbd>
+                  <FileText size={13} className="text-slate-400 group-hover:text-sky-400 transition-colors" />
+                  <span>Export to PDF (.pdf)</span>
+                </button>
+
+                {/* Export to Markdown */}
+                <button
+                  type="button"
+                  onClick={handleExportMarkdown}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
+                >
+                  <FileCode size={13} className="text-slate-400 group-hover:text-sky-400 transition-colors" />
+                  <span>Export to Markdown (.md)</span>
+                </button>
+
+                {/* Export to HTML */}
+                <button
+                  type="button"
+                  onClick={handleExportHtml}
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
+                >
+                  <Globe size={13} className="text-slate-400 group-hover:text-sky-400 transition-colors" />
+                  <span>Export to HTML (.html)</span>
                 </button>
 
                 {/* Copy Transcript */}
                 <button
                   type="button"
                   onClick={handleCopyTranscript}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
+                  className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-xl hover:bg-white/5 hover:text-white transition-colors cursor-pointer text-left group"
                 >
-                  <div className="flex items-center gap-2">
-                    <Copy size={13} className="text-slate-400" />
-                    <span>Copy transcript</span>
-                  </div>
+                  <Copy size={13} className="text-slate-400 group-hover:text-sky-400 transition-colors" />
+                  <span>Copy transcript</span>
                 </button>
 
                 <div className="border-t border-white/[0.06] my-1" />
@@ -1112,108 +1016,12 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
           </div>
         </div>
 
-        {/* Right: Outputs / Create Actions + Templates Toggle + Air-Gapped Mode Tag */}
+        {/* Right: Air-Gapped Mode Status Tag */}
         <div className="flex items-center gap-2">
-          
-          {/* Outputs / Create Action Popover */}
-          <div className="relative" ref={outputsMenuRef}>
-            <button
-              type="button"
-              onClick={() => setIsOutputsMenuOpen(prev => !prev)}
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-colors cursor-pointer ${
-                isOutputsMenuOpen
-                  ? 'bg-white/10 text-white font-medium'
-                  : 'text-slate-400 hover:text-white hover:bg-white/5'
-              }`}
-              title="Outputs & File Synthesis"
-            >
-              <FilePlus2 size={13} className="text-sky-400" />
-              <span>Create</span>
-            </button>
-
-            {isOutputsMenuOpen && (
-              <div className="absolute top-full right-0 mt-1.5 w-68 bg-[#18181c] border border-white/10 rounded-2xl shadow-2xl p-1.5 z-50 animate-fadeIn text-xs font-sans">
-                <div className="text-[10px] uppercase font-bold text-slate-500 px-2 py-1 tracking-wider">
-                  Create Output / File
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => handleCreateOutput('doc')}
-                  className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer text-left group"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 flex-shrink-0">
-                    <FileText size={13} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-xs group-hover:text-sky-300">Create Document</p>
-                    <p className="text-[10px] text-slate-500">Synthesize Markdown AST documentation</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCreateOutput('architecture')}
-                  className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer text-left group"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 flex-shrink-0">
-                    <Layers size={13} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-xs group-hover:text-purple-300">Create Architecture Canvas</p>
-                    <p className="text-[10px] text-slate-500">Map dataflow and symbol routers</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCreateOutput('tests')}
-                  className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer text-left group"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 flex-shrink-0">
-                    <FlaskConical size={13} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-xs group-hover:text-amber-300">Create Test Suite</p>
-                    <p className="text-[10px] text-slate-500">Generate Vitest / PyTest test cases</p>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleCreateOutput('site')}
-                  className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-xl hover:bg-white/5 text-slate-300 hover:text-white transition-colors cursor-pointer text-left group"
-                >
-                  <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
-                    <Globe size={13} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-xs group-hover:text-emerald-300">Create Live Site / Viewer</p>
-                    <p className="text-[10px] text-slate-500">Export single-file HTML & Tailwind preview</p>
-                  </div>
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Templates Drawer Toggle */}
-          <button
-            type="button"
-            onClick={() => setIsTemplatesDrawerOpen(prev => !prev)}
-            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-              isTemplatesDrawerOpen ? 'text-sky-400 bg-white/10' : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-            title="Templates Drawer"
-          >
-            <LayoutTemplate size={14} />
-          </button>
-
-          {/* Air-Gapped Mode Status Tag */}
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] text-slate-300 border border-white/10 text-xs font-mono">
             <ShieldCheck size={13} className="text-slate-400 stroke-[1.5]" />
             <span>Air-Gapped</span>
           </div>
-
         </div>
 
       </div>
@@ -1238,62 +1046,74 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
               {activeProject ? `What should we build in ${activeProject}?` : 'What should we build?'}
             </h1>
 
-            {/* 4 Action Cards Grid (Exact match to Reference Screenshot) */}
+            {/* 4 Action Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 w-full max-w-[760px] mb-0">
               
-              {/* Card 1: Explore and understand code */}
+              {/* Card 1: Explore Architecture & AST */}
               <button 
                 type="button"
-                onClick={() => triggerIntent('explore')} 
-                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-sky-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[110px] group shadow-sm hover:shadow-md"
+                onClick={() => handlePopulatePrompt("Analyze the AST structure of this codebase and explain the high-level data flow, major services, and API boundaries.")} 
+                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-sky-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[118px] group shadow-sm hover:shadow-md"
               >
-                <Megaphone size={16} className="text-sky-400 mb-3 select-none flex-shrink-0" />
+                <Compass size={18} className="text-sky-400 mb-3 select-none flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-white/95 text-[13px] group-hover:text-sky-300 transition-colors">
-                    Explore and understand code
+                    Explore Architecture & AST
                   </h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                    Map routers, schema definitions, and dataflow
+                  </p>
                 </div>
               </button>
 
-              {/* Card 2: Build a new feature, app, or tool */}
+              {/* Card 2: Generate Architecture Spec */}
               <button 
                 type="button"
-                onClick={() => triggerIntent('feature')} 
-                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-purple-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[110px] group shadow-sm hover:shadow-md"
+                onClick={() => handlePopulatePrompt("Generate a complete Markdown technical specification for this project, including core modules, function signatures, and data schemas.")} 
+                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-purple-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[118px] group shadow-sm hover:shadow-md"
               >
-                <Hammer size={16} className="text-purple-400 mb-3 select-none flex-shrink-0" />
+                <FileText size={18} className="text-purple-400 mb-3 select-none flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-white/95 text-[13px] group-hover:text-purple-300 transition-colors">
-                    Build a new feature, app, or tool
+                    Generate Architecture Spec
                   </h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                    Synthesize technical docs grounded in symbols
+                  </p>
                 </div>
               </button>
 
-              {/* Card 3: Review code and suggest changes */}
+              {/* Card 3: Audit Working Git Diff */}
               <button 
                 type="button"
-                onClick={() => triggerIntent('audit')} 
-                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-emerald-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[110px] group shadow-sm hover:shadow-md"
+                onClick={() => handlePopulatePrompt("Inspect my uncommitted local git diff for potential null-reference bugs, missing edge-case handling, and security leaks.")} 
+                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-emerald-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[118px] group shadow-sm hover:shadow-md"
               >
-                <RefreshCw size={16} className="text-emerald-400 mb-3 select-none flex-shrink-0" />
+                <ShieldCheck size={18} className="text-emerald-400 mb-3 select-none flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-white/95 text-[13px] group-hover:text-emerald-300 transition-colors">
-                    Review code and suggest changes
+                    Audit Working Git Diff
                   </h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                    Run shift-left security and logic checks
+                  </p>
                 </div>
               </button>
 
-              {/* Card 4: Fix issues and failures */}
+              {/* Card 4: Generate Test Suite */}
               <button 
                 type="button"
-                onClick={() => triggerIntent('fix')} 
-                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-amber-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[110px] group shadow-sm hover:shadow-md"
+                onClick={() => handlePopulatePrompt("Analyze the selected functions and generate comprehensive unit tests covering edge cases, happy paths, and defensive error boundaries.")} 
+                className="bg-[#1c1c20] hover:bg-[#242429] border border-white/[0.06] hover:border-amber-500/40 transition-all rounded-2xl p-4 text-left cursor-pointer flex flex-col justify-between min-h-[118px] group shadow-sm hover:shadow-md"
               >
-                <FlaskConical size={16} className="text-amber-500 mb-3 select-none flex-shrink-0" />
+                <FlaskConical size={18} className="text-amber-400 mb-3 select-none flex-shrink-0" />
                 <div>
                   <h3 className="font-semibold text-white/95 text-[13px] group-hover:text-amber-300 transition-colors">
-                    Fix issues and failures
+                    Generate Test Suite
                   </h3>
+                  <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                    Synthesize unit test assertions for active files
+                  </p>
                 </div>
               </button>
 
@@ -1503,47 +1323,6 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
       {/* Floating Bottom Command Dock (Pixel-for-Pixel Codex Alignment) */}
       <div className="w-full max-w-[760px] mx-auto px-4 pb-6 z-20">
         
-        {/* Expandable Templates Drawer (Matching Reference Screenshots) */}
-        {isTemplatesDrawerOpen && (
-          <div className="mb-3 bg-[#18181c] border border-white/10 rounded-2xl p-3.5 shadow-2xl animate-fadeIn text-xs">
-            <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <LayoutTemplate size={14} className="text-sky-400" />
-                <span className="font-semibold text-white text-xs">Codebase Templates</span>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsTemplatesDrawerOpen(false)}
-                className="text-slate-500 hover:text-white transition-colors cursor-pointer p-0.5"
-                title="Close Templates"
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-              {templatesList.map(tmpl => (
-                <button
-                  key={tmpl.id}
-                  type="button"
-                  onClick={() => handleSelectTemplate(tmpl.prompt)}
-                  className="bg-[#202024] hover:bg-[#28282e] border border-white/[0.06] hover:border-sky-500/40 rounded-xl p-3 text-left transition-all cursor-pointer flex flex-col justify-between min-h-[105px] group shadow-sm"
-                >
-                  <div className="text-lg mb-1.5 select-none">{tmpl.icon}</div>
-                  <div>
-                    <p className="font-medium text-white/95 text-xs group-hover:text-sky-300 transition-colors">
-                      {tmpl.title}
-                    </p>
-                    <p className="text-[10px] text-slate-400 mt-1 leading-tight line-clamp-2">
-                      {tmpl.desc}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Seamless Unified Input Card Structure */}
         <div className="relative z-10">
           

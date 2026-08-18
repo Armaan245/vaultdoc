@@ -25,8 +25,8 @@ interface PrePRStudioProps {
   onSelectFindingCitation?: (finding: AuditFinding) => void;
 }
 
-export const PrePRStudio = ({
-  symbols,
+export const PrePRStudio = ({ 
+  symbols = [], 
   selectedRepo,
   activeSeverityFilter = 'all',
   onSeverityFilterChange,
@@ -47,17 +47,22 @@ export const PrePRStudio = ({
   }, [selectedRepo]);
 
   const handleRefreshGit = async () => {
-    const state = await getLocalGitDiff(selectedRepo || undefined);
-    setGitState(state);
-    if (state.fileDiffs.length > 0) {
-      setSelectedFile(state.fileDiffs[0]);
-    } else {
+    try {
+      const state = await getLocalGitDiff(selectedRepo || undefined);
+      setGitState(state);
+      if (state.fileDiffs && state.fileDiffs.length > 0) {
+        setSelectedFile(state.fileDiffs[0]);
+      } else {
+        setSelectedFile(null);
+      }
+    } catch (_) {
+      setGitState(null);
       setSelectedFile(null);
     }
   };
 
   const handleRunAudit = async () => {
-    if (!gitState) return;
+    if (!gitState || gitState.fileDiffs.length === 0) return;
     setIsAuditing(true);
     setAuditStatus('Running parallel shift-left security & logic auditors...');
     try {
@@ -69,6 +74,8 @@ export const PrePRStudio = ({
       setAuditResult(result);
       if (result.findings.length > 0) {
         setSelectedFinding(result.findings[0]);
+      } else {
+        setSelectedFinding(null);
       }
     } catch (err: any) {
       setAuditStatus(`Audit error: ${err.message}`);
@@ -77,9 +84,9 @@ export const PrePRStudio = ({
     }
   };
 
-  // Run audit on first mount if not ran yet
+  // Run audit when new diffs arrive
   useEffect(() => {
-    if (gitState && !auditResult && !isAuditing) {
+    if (gitState && gitState.fileDiffs.length > 0 && !auditResult && !isAuditing) {
       handleRunAudit();
     }
   }, [gitState]);
@@ -261,9 +268,9 @@ export const PrePRStudio = ({
                 <p className="text-[11px] text-slate-500 mt-1">No uncommitted diffs detected in active workspace.</p>
                 <button
                   onClick={handleRefreshGit}
-                  className="mt-4 px-3.5 py-1.5 bg-white hover:bg-slate-200 text-slate-950 font-medium text-xs rounded-lg shadow-sm active:scale-95 transition-all cursor-pointer"
+                  className="mt-4 inline-flex items-center justify-center gap-1.5 px-3.5 py-1.5 bg-white hover:bg-slate-200 text-slate-950 font-medium text-xs rounded-lg shadow-sm active:scale-95 transition-all cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3 mr-1.5" />
+                  <RefreshCw className="w-3 h-3" />
                   <span>Refresh Git Status</span>
                 </button>
               </div>
@@ -299,19 +306,14 @@ export const PrePRStudio = ({
                 </button>
               ))}
             </div>
-
-            {/* Right: AST Inference tag */}
-            <span className="text-[10px] font-mono text-slate-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-slate-400" /> Parallel AST Inference
-            </span>
           </div>
 
           {/* Findings Cards List */}
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-3">
+          <div className={`flex-1 overflow-y-auto p-4 custom-scrollbar ${filteredFindings.length === 0 ? 'flex flex-col items-center justify-center' : 'space-y-3'}`}>
             {filteredFindings.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">
-                <div className="w-10 h-10 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mx-auto mb-2.5">
-                  <ShieldCheck className="w-5 h-5 text-slate-400 stroke-[1.5]" />
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-slate-400">
+                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/10 flex items-center justify-center mx-auto mb-3">
+                  <ShieldCheck className="w-6 h-6 text-slate-400 stroke-[1.5]" />
                 </div>
                 <p className="text-xs font-semibold text-slate-200">No findings for selected severity filter.</p>
                 <p className="text-[11px] text-slate-500 mt-1">Code adheres to air-gapped security & logic constraints.</p>
