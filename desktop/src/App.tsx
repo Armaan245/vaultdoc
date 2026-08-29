@@ -149,6 +149,12 @@ function App() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Toggle Right Side Panel (RAG Context Inspector) on Ctrl+Alt+B or Ctrl+Shift+B
+      if ((e.ctrlKey || e.metaKey) && (e.altKey || e.shiftKey) && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        setIsInspectorOpen(prev => !prev);
+        return;
+      }
       // Toggle Left Sidebar on Ctrl+B or Cmd+B
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
@@ -328,6 +334,8 @@ function App() {
               onSelectProjectName={handleSelectWorkspaceProject}
               onNavigateTab={(targetTab: 'architecture' | 'spec' | 'audit' | 'tests') => setActiveTab(targetTab)}
               onSelectCitation={handleSelectNodeCitation}
+              isInspectorOpen={isInspectorOpen}
+              onToggleInspector={() => setIsInspectorOpen(prev => !prev)}
             />
           </div>
 

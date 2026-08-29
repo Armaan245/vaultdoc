@@ -32,7 +32,8 @@ import {
   GitFork,
   Laptop,
   Lock,
-  ShieldCheck
+  ShieldCheck,
+  PanelRight
 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -62,6 +63,8 @@ interface ChatStudioProps {
   onSelectProjectName?: (projectName: string) => void;
   onNavigateTab?: (tab: 'architecture' | 'spec' | 'audit' | 'tests') => void;
   onSelectCitation?: (node: { file?: string; symbol?: string }) => void;
+  isInspectorOpen?: boolean;
+  onToggleInspector?: () => void;
 }
 
 function generateIntelligentASTResponse(query: string, projectName: string, symbols: ASTSymbol[], _citations: any[]): string {
@@ -309,7 +312,9 @@ export const ChatStudio = ({
   onSelectProject,
   onSelectProjectName,
   onNavigateTab: _onNavigateTab,
-  onSelectCitation 
+  onSelectCitation,
+  isInspectorOpen = false,
+  onToggleInspector
 }: ChatStudioProps) => {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(() => {
     return propActiveSessionId !== undefined ? propActiveSessionId : getStoredActiveSessionId();
@@ -1016,12 +1021,31 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
           </div>
         </div>
 
-        {/* Right: Air-Gapped Mode Status Tag */}
+        {/* Right: Air-Gapped Mode Status Tag & Side Panel Toggle */}
         <div className="flex items-center gap-2">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/[0.04] text-slate-300 border border-white/10 text-xs font-mono">
             <ShieldCheck size={13} className="text-slate-400 stroke-[1.5]" />
             <span>Air-Gapped</span>
           </div>
+
+          {onToggleInspector && (
+            <div className="relative group flex items-center">
+              <button
+                type="button"
+                onClick={onToggleInspector}
+                className={`p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 transition-colors cursor-pointer border border-white/5 ${
+                  isInspectorOpen ? 'text-white bg-white/10 border-white/10' : ''
+                }`}
+                title="Toggle side panel (Ctrl+Alt+B)"
+              >
+                <PanelRight size={14} />
+              </button>
+              <div className="absolute top-full right-0 mt-1.5 hidden group-hover:flex items-center gap-1.5 px-2 py-1 bg-[#1e1e24] text-[11px] text-slate-300 rounded-md border border-white/10 shadow-xl whitespace-nowrap pointer-events-none z-50">
+                <span>Toggle side panel</span>
+                <kbd className="bg-white/10 px-1 py-0.5 rounded text-[9px] font-mono text-slate-400">Ctrl+Alt+B</kbd>
+              </div>
+            </div>
+          )}
         </div>
 
       </div>
