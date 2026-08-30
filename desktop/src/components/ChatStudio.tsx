@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Folder, 
   Plus, 
@@ -338,6 +338,19 @@ export const ChatStudio = ({
   const [isProjectPickerOpen, setIsProjectPickerOpen] = useState(false);
   const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [askForApproval, setAskForApproval] = useState(true);
+
+  const effectiveProjects = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>();
+    for (const p of projects) {
+      if (p && p.id) {
+        map.set(p.id, p);
+      }
+    }
+    if (activeProject && !map.has(activeProject)) {
+      map.set(activeProject, { id: activeProject, name: activeProject });
+    }
+    return Array.from(map.values());
+  }, [projects, activeProject]);
 
   // Work In / Environment dropdown state
   const [isWorkInMenuOpen, setIsWorkInMenuOpen] = useState(false);
@@ -1637,7 +1650,7 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
 
                 {/* Project list items */}
                 <div className="p-1 max-h-48 overflow-y-auto custom-scrollbar space-y-0.5">
-                  {projects
+                  {effectiveProjects
                     .filter((p: { id: string; name: string }) => p.name.toLowerCase().includes(projectSearchQuery.toLowerCase()))
                     .map((proj: { id: string; name: string }) => {
                       const isSelected = activeProject === proj.id;
@@ -1663,7 +1676,7 @@ Instructions: Provide a clear, comprehensive, and well-structured response in cl
                       );
                     })}
 
-                  {projects.filter((p: { id: string; name: string }) => p.name.toLowerCase().includes(projectSearchQuery.toLowerCase())).length === 0 && (
+                  {effectiveProjects.filter((p: { id: string; name: string }) => p.name.toLowerCase().includes(projectSearchQuery.toLowerCase())).length === 0 && (
                     <div className="text-center py-4 text-slate-500 text-xs">
                       No projects found
                     </div>

@@ -200,8 +200,14 @@ function App() {
     saveStoredActiveProject(projectName);
     setActiveProject(projectName);
     const existingProj = projects.find(p => p.id === projectName);
-    if (existingProj?.path) {
-      setSelectedRepo(existingProj.path);
+    if (existingProj) {
+      const stored = getStoredProjects();
+      if (!stored.some(p => p.id === existingProj.id)) {
+        saveStoredProjects([...stored, existingProj]);
+      }
+      if (existingProj.path) {
+        setSelectedRepo(existingProj.path);
+      }
     }
     if (projectName) {
       loadWorkspaceAST(projectName);

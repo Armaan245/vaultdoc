@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { 
   Search, 
   Bell, 
@@ -96,6 +96,19 @@ export const ActivityDock = ({
   const [editingTitle, setEditingTitle] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const effectiveProjects = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; path?: string }>();
+    for (const p of projects) {
+      if (p && p.id) {
+        map.set(p.id, p);
+      }
+    }
+    if (activeProject && !map.has(activeProject)) {
+      map.set(activeProject, { id: activeProject, name: activeProject });
+    }
+    return Array.from(map.values());
+  }, [projects, activeProject]);
+
   const helpMenuRef = useRef<HTMLDivElement>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -115,6 +128,12 @@ export const ActivityDock = ({
       setActiveSessionId(propActiveSessionId);
     }
   }, [propActiveSessionId]);
+
+  useEffect(() => {
+    if (activeProject) {
+      setExpandedProjects(prev => new Set(prev).add(activeProject));
+    }
+  }, [activeProject]);
 
   useEffect(() => {
     const handleSessionsSync = () => {
@@ -354,8 +373,8 @@ export const ActivityDock = ({
             </button>
           </div>
           <div className="space-y-1">
-            {projects.length > 0 ? (
-              projects.map(proj => {
+            {effectiveProjects.length > 0 ? (
+              effectiveProjects.map(proj => {
                 const projectSessions = sessions.filter(s => s.projectId === proj.id && !s.isArchived);
                 const isProjectSelected = activeProject === proj.id;
                 const isExpanded = expandedProjects.has(proj.id);
@@ -366,16 +385,16 @@ export const ActivityDock = ({
                     <button
                       type="button"
                       onClick={() => {
+                        onSelectProject?.(proj.id);
                         setExpandedProjects(prev => {
                           const next = new Set(prev);
-                          if (next.has(proj.id)) {
+                          if (isProjectSelected && next.has(proj.id)) {
                             next.delete(proj.id);
                           } else {
                             next.add(proj.id);
                           }
                           return next;
                         });
-                        onSelectProject?.(proj.id);
                       }}
                       className={`w-full px-2 py-1.5 rounded-lg flex items-center gap-2 text-left transition-all cursor-pointer group select-none ${
                         isProjectSelected 

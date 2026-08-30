@@ -18,11 +18,20 @@
 
 @layer base {
   body {
-    @apply bg-[#0B0C10] text-vault-textBody font-sans m-0 p-0 overflow-hidden select-none;
+    background-color: #0B0C10;
+    color: var(--color-vault-textBody, #94A3B8);
+    font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    user-select: none;
+    -webkit-user-select: none;
   }
   
   h1, h2, h3, h4, h5, h6 {
-    @apply text-vault-textPrimary font-semibold tracking-tight;
+    color: var(--color-vault-textPrimary, #F8FAFC);
+    font-weight: 600;
+    letter-spacing: -0.025em;
   }
 }
 
@@ -282,10 +291,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  @apply bg-vault-border rounded;
+  background-color: var(--color-vault-border, #232736);
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-vault-textBody;
+  background-color: var(--color-vault-textBody, #94A3B8);
 }
 
 @media print {

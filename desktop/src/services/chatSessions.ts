@@ -34,10 +34,46 @@ const ACTIVE_PROJECT_KEY = 'vaultdoc_active_project_id';
 export function getStoredProjects(): WorkspaceProject[] {
   try {
     const raw = localStorage.getItem(PROJECTS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((p: WorkspaceProject) => p && p.id !== 'DATADUKAN_PRO' && p.id !== 'EVO_RETAIL');
+    let list: WorkspaceProject[] = [];
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        list = parsed.filter((p: WorkspaceProject) => p && typeof p.id === 'string' && p.id.trim().length > 0);
+      }
+    }
+
+    // Auto-heal: If there is an active project or chat sessions assigned to a project not in the list, auto-add it
+    const active = localStorage.getItem(ACTIVE_PROJECT_KEY);
+    let changed = false;
+
+    if (active && active.trim().length > 0 && !list.some(p => p.id === active || p.name === active)) {
+      list.push({ id: active, name: active });
+      changed = true;
+    }
+
+    // Also check stored sessions for any project IDs
+    const rawSessions = localStorage.getItem(SESSIONS_STORAGE_KEY);
+    if (rawSessions) {
+      try {
+        const sessions = JSON.parse(rawSessions);
+        if (Array.isArray(sessions)) {
+          for (const s of sessions) {
+            if (s && s.projectId && typeof s.projectId === 'string' && s.projectId.trim().length > 0 && s.projectId !== 'general') {
+              if (!list.some(p => p.id === s.projectId || p.name === s.projectId)) {
+                list.push({ id: s.projectId, name: s.projectId });
+                changed = true;
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+
+    if (changed) {
+      localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(list));
+    }
+
+    return list;
   } catch {
     return [];
   }
@@ -45,8 +81,12 @@ export function getStoredProjects(): WorkspaceProject[] {
 
 export function saveStoredProjects(projects: WorkspaceProject[]) {
   try {
-    const filtered = projects.filter(p => p.id !== 'DATADUKAN_PRO' && p.id !== 'EVO_RETAIL');
-    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(filtered));
+    const valid = projects.filter(p => p && typeof p.id === 'string' && p.id.trim().length > 0);
+    const active = localStorage.getItem(ACTIVE_PROJECT_KEY);
+    if (active && active.trim().length > 0 && !valid.some(p => p.id === active || p.name === active)) {
+      valid.push({ id: active, name: active });
+    }
+    localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(valid));
     window.dispatchEvent(new Event('vaultdoc_projects_change'));
   } catch (err) {
     console.error('Failed to save projects', err);
@@ -56,7 +96,6 @@ export function saveStoredProjects(projects: WorkspaceProject[]) {
 export function getStoredActiveProject(): string {
   try {
     const raw = localStorage.getItem(ACTIVE_PROJECT_KEY);
-    if (raw === 'DATADUKAN_PRO' || raw === 'EVO_RETAIL') return '';
     return raw || '';
   } catch {
     return '';
@@ -65,8 +104,23 @@ export function getStoredActiveProject(): string {
 
 export function saveStoredActiveProject(projectId: string) {
   try {
-    if (projectId && projectId !== 'DATADUKAN_PRO' && projectId !== 'EVO_RETAIL') {
+    if (projectId && projectId.trim().length > 0) {
       localStorage.setItem(ACTIVE_PROJECT_KEY, projectId);
+      // Ensure the active project is persisted in the stored projects list
+      const raw = localStorage.getItem(PROJECTS_STORAGE_KEY);
+      let list: WorkspaceProject[] = [];
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) {
+            list = parsed.filter(p => p && typeof p.id === 'string' && p.id.trim().length > 0);
+          }
+        } catch {}
+      }
+      if (!list.some(p => p.id === projectId || p.name === projectId)) {
+        list.push({ id: projectId, name: projectId });
+        localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(list));
+      }
     } else {
       localStorage.removeItem(ACTIVE_PROJECT_KEY);
     }
@@ -83,13 +137,7 @@ export function getStoredChatSessions(): ChatSession[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     
-    // Sanitize any legacy copied strings or dummy project associations
     return parsed.map((s: ChatSession, idx: number) => {
-      let updatedProjectId = s.projectId;
-      if (updatedProjectId === 'DATADUKAN_PRO' || updatedProjectId === 'EVO_RETAIL') {
-        updatedProjectId = '';
-      }
-
       if (s.title && s.title.toLowerCase().startsWith('respond to greeting')) {
         const fallbackTitles = [
           'AST Workspace Overview',
@@ -99,14 +147,10 @@ export function getStoredChatSessions(): ChatSession[] {
         ];
         return {
           ...s,
-          projectId: updatedProjectId,
           title: fallbackTitles[idx % fallbackTitles.length]
         };
       }
-      return {
-        ...s,
-        projectId: updatedProjectId
-      };
+      return s;
     });
   } catch {
     return [];
