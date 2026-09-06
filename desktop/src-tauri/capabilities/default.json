@@ -30,6 +30,12 @@
           "name": "cmd",
           "cmd": "cmd",
           "args": true
+        },
+        {
+          "name": "ollama",
+          "cmd": "ollama",
+          "args": true,
+          "sidecar": true
         }
       ]
     },

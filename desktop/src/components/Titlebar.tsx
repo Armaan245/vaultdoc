@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   PanelLeft, 
   ChevronLeft, 
@@ -7,21 +7,59 @@ import {
   Square, 
   X, 
   Search, 
-  Bell 
+  Bell,
+  Cpu,
+  RefreshCw
 } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { 
+  subscribeSidecar, 
+  startSidecar, 
+  type OllamaSidecarStatus 
+} from '../services/sidecar';
 
 interface TitlebarProps {
   isSidebarOpen?: boolean;
   onToggleSidebar?: () => void;
+  onOpenSettings?: (category?: string) => void;
 }
 
 export const Titlebar: React.FC<TitlebarProps> = ({
   isSidebarOpen = true,
-  onToggleSidebar
+  onToggleSidebar,
+  onOpenSettings
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
+  const [sidecarStatus, setSidecarStatus] = useState<OllamaSidecarStatus>({
+    isRunning: false,
+    isBundled: false,
+    status: 'starting',
+    port: 11434,
+    endpoint: 'http://localhost:11434',
+    models: [],
+    message: 'Initializing...',
+    lastChecked: new Date(),
+  });
+  const [isRestarting, setIsRestarting] = useState(false);
+  const [showSidecarMenu, setShowSidecarMenu] = useState(false);
+
+  useEffect(() => {
+    const unsubscribe = subscribeSidecar((status) => {
+      setSidecarStatus(status);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleStartRestart = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsRestarting(true);
+    try {
+      await startSidecar();
+    } finally {
+      setIsRestarting(false);
+    }
+  };
 
   const handleMinimize = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -151,11 +189,110 @@ export const Titlebar: React.FC<TitlebarProps> = ({
         style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
       />
 
-      {/* Right: Window Controls */}
+      {/* Right: Sidecar Status & Window Controls */}
       <div 
-        className="flex items-center space-x-0 text-slate-400 z-20 relative pointer-events-auto"
+        className="flex items-center space-x-1 text-slate-400 z-20 relative pointer-events-auto"
         style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
       >
+        {/* Ollama Sidecar Health Badge */}
+        <div className="relative flex items-center pr-1">
+          <button
+            type="button"
+            onClick={() => setShowSidecarMenu(prev => !prev)}
+            className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium border transition-all cursor-pointer ${
+              sidecarStatus.status === 'bundled'
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                : sidecarStatus.status === 'external'
+                ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/20'
+                : sidecarStatus.status === 'starting'
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400 hover:bg-amber-500/20'
+                : 'bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20'
+            }`}
+            title="Ollama Local Inference Engine Status"
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${
+              sidecarStatus.status === 'bundled' || sidecarStatus.status === 'external'
+                ? 'bg-emerald-400 animate-pulse'
+                : sidecarStatus.status === 'starting'
+                ? 'bg-amber-400 animate-spin'
+                : 'bg-rose-400'
+            }`} />
+            <Cpu size={12} className="opacity-80" />
+            <span className="font-mono text-[10px]">
+              {sidecarStatus.status === 'bundled'
+                ? 'Sidecar :11434'
+                : sidecarStatus.status === 'external'
+                ? 'Ollama :11434'
+                : sidecarStatus.status === 'starting'
+                ? 'Starting...'
+                : 'Ollama Offline'}
+            </span>
+            {sidecarStatus.models.length > 0 && (
+              <span className="px-1 py-0.2 rounded text-[9px] bg-white/10 font-bold">
+                {sidecarStatus.models.length}m
+              </span>
+            )}
+          </button>
+
+          {/* Sidecar Dropdown / Diagnostics Popover */}
+          {showSidecarMenu && (
+            <div className="absolute right-0 top-full mt-1.5 w-64 bg-[#181920] border border-white/10 rounded-xl shadow-2xl p-3 z-50 text-xs text-slate-200 backdrop-blur-xl">
+              <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/5">
+                <div className="flex items-center gap-1.5 font-semibold text-slate-100">
+                  <Cpu size={14} className="text-cyan-400" />
+                  <span>Local Inference Engine</span>
+                </div>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+                  sidecarStatus.isRunning ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                }`}>
+                  {sidecarStatus.isRunning ? 'ONLINE' : 'OFFLINE'}
+                </span>
+              </div>
+
+              <div className="space-y-1.5 text-[11px] text-slate-400 mb-3">
+                <div className="flex justify-between">
+                  <span>Mode:</span>
+                  <span className="text-slate-200 font-mono">
+                    {sidecarStatus.isBundled ? 'Managed Sidecar' : (sidecarStatus.isRunning ? 'System Service' : 'None')}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Endpoint:</span>
+                  <span className="text-slate-200 font-mono">http://localhost:11434</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Models:</span>
+                  <span className="text-slate-200 font-medium">{sidecarStatus.models.length} detected</span>
+                </div>
+                <p className="text-[10px] text-slate-500 pt-1 leading-relaxed">{sidecarStatus.message}</p>
+              </div>
+
+              <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                <button
+                  type="button"
+                  disabled={isRestarting}
+                  onClick={handleStartRestart}
+                  className="flex-1 flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg bg-sky-600/20 border border-sky-500/30 text-sky-300 hover:bg-sky-600/30 transition-all font-medium text-[11px] cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw size={12} className={isRestarting ? 'animate-spin' : ''} />
+                  <span>{sidecarStatus.isRunning ? 'Restart Sidecar' : 'Start Sidecar'}</span>
+                </button>
+                {onOpenSettings && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSidecarMenu(false);
+                      onOpenSettings('ai');
+                    }}
+                    className="py-1.5 px-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 transition-all text-[11px] cursor-pointer"
+                  >
+                    Configure
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
         <button
           type="button"
           onClick={handleMinimize}

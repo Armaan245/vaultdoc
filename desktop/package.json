@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "tauri:build": "npm run build && tauri build",
+    "build:desktop": "npm run build && electron-builder --config ../electron-builder.yml"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.3.3",

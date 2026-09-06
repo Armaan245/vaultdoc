@@ -5,7 +5,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build": "tsc",
+    "build:desktop": "npm run build && electron-builder --config electron-builder.yml",
+    "tauri": "npm --prefix desktop exec tauri --",
+    "tauri:build": "npm --prefix desktop run build && npm --prefix desktop exec tauri -- build"
   },
   "keywords": [],
   "author": "",

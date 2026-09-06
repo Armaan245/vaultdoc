@@ -1,0 +1,85 @@
+appId: com.vaultdoc.workbench
+productName: VaultDoc
+copyright: "Copyright © 2026 VaultDoc"
+
+directories:
+  output: dist_desktop
+  buildResources: desktop/src-tauri/icons
+
+files:
+  - "dist/**/*"
+  - "desktop/dist/**/*"
+  - "package.json"
+  - "!**/node_modules/*/{CHANGELOG.md,README.md,README,readme.md,readme}"
+  - "!**/node_modules/*/{test,__tests__,tests,powered-test,example,examples}"
+
+extraResources:
+  - from: "node_modules/@lancedb/"
+    to: "node_modules/@lancedb"
+    filter:
+      - "**/*"
+  - from: "node_modules/tree-sitter-wasms/out/"
+    to: "resources/tree-sitter"
+    filter:
+      - "*.wasm"
+  - from: "resources/tree-sitter/"
+    to: "resources/tree-sitter"
+    filter:
+      - "*.wasm"
+  - from: "resources/bin/"
+    to: "resources/bin"
+    filter:
+      - "**/*"
+
+asar: true
+asarUnpack:
+  - "**/*.node"
+  - "**/node_modules/@lancedb/**/*"
+  - "**/tree-sitter-wasms/**/*"
+  - "**/resources/**/*"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: msi
+      arch:
+        - x64
+  icon: desktop/src-tauri/icons/icon.ico
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: VaultDoc
+  installerIcon: desktop/src-tauri/icons/icon.ico
+  uninstallerIcon: desktop/src-tauri/icons/icon.ico
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - x64
+        - arm64
+    - target: zip
+      arch:
+        - x64
+        - arm64
+  icon: desktop/src-tauri/icons/icon.icns
+  category: public.app-category.developer-tools
+  hardenedRuntime: true
+  gatekeeperAssess: false
+
+linux:
+  target:
+    - target: AppImage
+      arch:
+        - x64
+    - target: deb
+      arch:
+        - x64
+  icon: desktop/src-tauri/icons/icon.png
+  category: Development

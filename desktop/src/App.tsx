@@ -27,6 +27,7 @@ import {
 import type { ArchitectureViewMode } from './services/architecture';
 
 import Titlebar from './components/Titlebar';
+import { initSidecarWatcher } from './services/sidecar';
 
 function App() {
   // Activity Workspace State - Default to 'chat' (Center Intent Command Center)
@@ -102,6 +103,9 @@ function App() {
     window.addEventListener('vaultdoc_theme_change', handleSync);
     window.addEventListener('vaultdoc_config_change', handleConfigSync);
     window.addEventListener('vaultdoc_projects_change', handleProjectsSync);
+
+    // Initialize local Ollama inference sidecar health watcher
+    initSidecarWatcher();
 
     // Initial load of AST symbols if a real project is active
     const curActive = getStoredActiveProject();
@@ -273,6 +277,10 @@ function App() {
       <Titlebar 
         isSidebarOpen={isSidebarOpen}
         onToggleSidebar={() => setIsSidebarOpen(prev => !prev)}
+        onOpenSettings={(cat) => {
+          setSettingsInitialCategory(cat || 'general');
+          setIsSettingsOpen(true);
+        }}
       />
       
       {/* Global Error Toast */}

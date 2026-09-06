@@ -59,6 +59,13 @@ import {
   deleteChatSession,
   saveStoredActiveSessionId
 } from '../services/chatSessions';
+import { 
+  startSidecar, 
+  stopSidecar, 
+  checkSidecarHealth, 
+  subscribeSidecar, 
+  type OllamaSidecarStatus 
+} from '../services/sidecar';
 
 interface SettingsProps {
   activeMode: 1 | 2;
@@ -191,6 +198,27 @@ export const SettingsModal: React.FC<SettingsProps> = ({
   const [fetchStatus, setFetchStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [contextWindow, setContextWindow] = useState<number>(16384);
   const [gpuOffload, setGpuOffload] = useState<boolean>(true);
+  const [sidecarStatus, setSidecarStatus] = useState<OllamaSidecarStatus>({
+    isRunning: false,
+    isBundled: false,
+    status: 'starting',
+    port: 11434,
+    endpoint: 'http://localhost:11434',
+    models: [],
+    message: 'Checking inference engine...',
+    lastChecked: new Date(),
+  });
+  const [isSidecarActionRunning, setIsSidecarActionRunning] = useState(false);
+
+  React.useEffect(() => {
+    const unsub = subscribeSidecar((status) => {
+      setSidecarStatus(status);
+      if (status.models.length > 0 && availableModels.length === 0) {
+        setAvailableModels(status.models);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   // GitHub State
   const [gitHubConfig, setGitHubConfig] = useState<GitHubConfig>(getStoredGitHubConfig);
@@ -1484,6 +1512,99 @@ export const SettingsModal: React.FC<SettingsProps> = ({
                 <div>
                   <h1 className="text-2xl font-medium text-white tracking-tight">Local Model Runtime</h1>
                   <p className="text-xs text-slate-400 mt-1">Connect directly to local inference backends (Ollama, LM Studio, vLLM).</p>
+                </div>
+
+                {/* Sidecar Daemon & Inference Manager Card */}
+                <div className="bg-[#18181c] border border-white/[0.06] rounded-2xl p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-xl ${sidecarStatus.isRunning ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                        <Cpu size={18} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-semibold text-white">Ollama Local Inference Sidecar</h3>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium border ${
+                            sidecarStatus.isRunning 
+                              ? (sidecarStatus.isBundled ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400')
+                              : 'bg-rose-500/10 border-rose-500/30 text-rose-400'
+                          }`}>
+                            {sidecarStatus.isRunning ? (sidecarStatus.isBundled ? 'BUNDLED SIDECAR' : 'SYSTEM SERVICE') : 'OFFLINE'}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {sidecarStatus.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={isSidecarActionRunning}
+                        onClick={async () => {
+                          setIsSidecarActionRunning(true);
+                          try {
+                            if (sidecarStatus.isRunning && sidecarStatus.isBundled) {
+                              await stopSidecar();
+                            } else {
+                              await startSidecar();
+                            }
+                            await handleFetchModels(config);
+                          } finally {
+                            setIsSidecarActionRunning(false);
+                          }
+                        }}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-medium transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 ${
+                          sidecarStatus.isRunning && sidecarStatus.isBundled
+                            ? 'bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20'
+                            : 'bg-sky-600/20 border border-sky-500/30 text-sky-300 hover:bg-sky-600/30'
+                        }`}
+                      >
+                        <RefreshCw size={12} className={isSidecarActionRunning ? 'animate-spin' : ''} />
+                        <span>{sidecarStatus.isRunning && sidecarStatus.isBundled ? 'Stop Sidecar' : 'Start Sidecar'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={isSidecarActionRunning}
+                        onClick={async () => {
+                          setIsSidecarActionRunning(true);
+                          try {
+                            await checkSidecarHealth();
+                            await handleFetchModels(config);
+                          } finally {
+                            setIsSidecarActionRunning(false);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-slate-300 text-xs font-medium transition-all cursor-pointer"
+                        title="Ping localhost:11434"
+                      >
+                        Health Check
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 pt-2 text-xs">
+                    <div className="bg-[#222227] border border-white/[0.04] rounded-xl p-3">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Status</span>
+                      <span className={`font-medium ${sidecarStatus.isRunning ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        {sidecarStatus.isRunning ? 'Ready on port 11434' : 'Not running'}
+                      </span>
+                    </div>
+                    <div className="bg-[#222227] border border-white/[0.04] rounded-xl p-3">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Local Models</span>
+                      <span className="text-white font-medium">
+                        {sidecarStatus.models.length} installed
+                      </span>
+                    </div>
+                    <div className="bg-[#222227] border border-white/[0.04] rounded-xl p-3">
+                      <span className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">Lifecycle</span>
+                      <span className="text-slate-300 font-medium">
+                        Auto-terminate on quit
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="bg-[#18181c] border border-white/[0.06] rounded-2xl p-5 space-y-5">

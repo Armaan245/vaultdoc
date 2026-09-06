@@ -9,29 +9,84 @@ const LANG_WASM: Record<string, string> = {
   '.tsx': 'tree-sitter-tsx.wasm',
   '.js': 'tree-sitter-javascript.wasm',
   '.jsx': 'tree-sitter-javascript.wasm',
+  '.mjs': 'tree-sitter-javascript.wasm',
+  '.cjs': 'tree-sitter-javascript.wasm',
   '.py': 'tree-sitter-python.wasm',
   '.go': 'tree-sitter-go.wasm',
   '.rs': 'tree-sitter-rust.wasm',
-  '.mjs': 'tree-sitter-javascript.wasm',
+  '.c': 'tree-sitter-c.wasm',
+  '.h': 'tree-sitter-c.wasm',
+  '.cpp': 'tree-sitter-cpp.wasm',
+  '.hpp': 'tree-sitter-cpp.wasm',
+  '.cc': 'tree-sitter-cpp.wasm',
+  '.cs': 'tree-sitter-c_sharp.wasm',
+  '.java': 'tree-sitter-java.wasm',
+  '.rb': 'tree-sitter-ruby.wasm',
+  '.php': 'tree-sitter-php.wasm',
+  '.swift': 'tree-sitter-swift.wasm',
+  '.kt': 'tree-sitter-kotlin.wasm',
+  '.sh': 'tree-sitter-bash.wasm',
+  '.bash': 'tree-sitter-bash.wasm',
 };
 
 let parserReady = false;
 const parsers: Record<string, any> = {};
 
+/**
+ * Resolves the directory containing Tree-sitter WASM grammar files.
+ * Supports development, Tauri bundled resources, and Electron extraResources.
+ */
+export function getWasmDirectory(): string {
+  const candidatePaths: string[] = [];
+
+  if (process.env.VAULTDOC_WASM_DIR) {
+    candidatePaths.push(process.env.VAULTDOC_WASM_DIR);
+  }
+
+  // Electron production packaged resourcesPath
+  if ((process as any).resourcesPath) {
+    candidatePaths.push(
+      path.join((process as any).resourcesPath, 'resources', 'tree-sitter'),
+      path.join((process as any).resourcesPath, 'tree-sitter')
+    );
+  }
+
+  // Local resources directory
+  candidatePaths.push(
+    path.join(process.cwd(), 'resources', 'tree-sitter'),
+    path.join(process.cwd(), 'desktop', 'src-tauri', 'resources', 'tree-sitter'),
+    path.join(__dirname, '..', 'resources', 'tree-sitter'),
+    path.join(__dirname, '..', 'desktop', 'src-tauri', 'resources', 'tree-sitter'),
+    path.join(__dirname, '..', 'node_modules', 'tree-sitter-wasms', 'out'),
+    path.join(process.cwd(), 'node_modules', 'tree-sitter-wasms', 'out')
+  );
+
+  for (const candidate of candidatePaths) {
+    if (fs.existsSync(candidate) && fs.existsSync(path.join(candidate, 'tree-sitter-typescript.wasm'))) {
+      return candidate;
+    }
+  }
+
+  // Fallback to node_modules path
+  return path.join(__dirname, '..', 'node_modules', 'tree-sitter-wasms', 'out');
+}
+
 export async function initParser() {
   if (parserReady) return;
   await Parser.init();
   
-  const wasmDir = path.join(__dirname, '..', 'node_modules', 'tree-sitter-wasms', 'out');
+  const wasmDir = getWasmDirectory();
 
   for (const [ext, wasmFile] of Object.entries(LANG_WASM)) {
     if (!parsers[ext]) {
       const wasmPath = path.join(wasmDir, wasmFile);
-      try {
-        const lang = await Parser.Language.load(wasmPath);
-        parsers[ext] = lang;
-      } catch (e: any) {
-        console.warn(`Failed to load language for ${ext} at ${wasmPath}:`, e.message || e);
+      if (fs.existsSync(wasmPath)) {
+        try {
+          const lang = await Parser.Language.load(wasmPath);
+          parsers[ext] = lang;
+        } catch (e: any) {
+          console.warn(`Failed to load language for ${ext} at ${wasmPath}:`, e.message || e);
+        }
       }
     }
   }
